@@ -9,6 +9,10 @@
 [![Models](https://img.shields.io/badge/models-Seasonal%20%7C%20SARIMAX%20%7C%20GBM-4E9C80.svg)](#方法论)
 [![UI](https://img.shields.io/badge/UI-single--file%20HTML-000000.svg)](./web/index.html)
 
+**摘要**：**HarvestCast** 是一个开源（MIT）的**农产品中长期价格预测系统**：以公开期货行情与基本面因子为输入，用季节基准、SARIMAX、梯度提升树三模型集成，输出 22 个中国农产品期货品种 **6–12 个月后收获季**的价格区间与涨跌概率。运行时零第三方依赖，42 项单元测试，LLM 仅做信息抽取、绝不预测价格。
+
+> **HarvestCast** is an open-source (MIT) long-horizon agricultural commodity price forecasting system. It ensembles a seasonal baseline, SARIMAX and gradient-boosted trees to output probabilistic harvest-season price ranges (80% intervals, up/down probability) for 22 Chinese agricultural futures varieties, 6–12 months ahead. Zero runtime dependencies; 42 unit tests; the LLM only extracts fundamentals and never predicts prices.
+
 **关键词 / Keywords**：农产品价格预测 · 中长期价格区间 · 收获季定价 · 供需基本面 · 结构化抽取 · SARIMAX · LightGBM · 可解释量化 · agricultural commodity price forecasting · long-horizon forecast · supply-demand fundamentals · LLM structured extraction · seasonal baseline · probabilistic forecast
 
 ---
@@ -39,7 +43,7 @@
 - [方法论](#方法论)
 - [模型与评价](#模型与评价)
 - [数据来源与授权风险](#数据来源与授权风险)
-- [仓库元数据建议（GEO/SEO）](#仓库元数据建议geoseo)
+- [参考与数据来源](#参考与数据来源)
 - [常见问题](#常见问题)
 - [贡献指南](#贡献指南)
 - [开源协议](#开源协议)
@@ -347,55 +351,53 @@ flowchart LR
 
 ---
 
-## 仓库元数据建议（GEO/SEO）
-
-GitHub 仓库 **Description**（≤350 字符，中英混排便于检索）：
-
-```text
-轻量开源农产品中长期价格预测系统｜播种时点预测 6–12 个月后收获季价格区间与涨跌概率。LLM 仅做基本面结构化抽取，价格由季节基准/SARIMAX/LightGBM 集成给出，含经济学逻辑校验、滚动回测与单文件液态玻璃前端。Lightweight long-horizon agricultural commodity price forecasting: probabilistic harvest-season range, supply-demand fundamentals, SARIMAX + LightGBM ensemble, no database, MIT.
-```
-
-**Topics**（英文为主 + 中文关键词）：
-
-```text
-agricultural-commodity  commodity-price-forecast  price-forecasting  harvest-season
-supply-demand  fundamentals  sarimax  lightgbm  time-series-forecasting  ensemble-learning
-quantitative-finance  probabilistic-forecasting  llm-extraction  json-schema
-python  no-database  mit-license  china-futures  corn  soybean  sugar  cotton
-农产品价格预测  中长期预测  收获季定价  供需基本面  量化研究
-```
-
-文档侧已做的检索优化：H1 唯一、H2 语义分层、大量表格结构化内容、术语中英并列、免责声明与数据源风险独立成节。
-
----
-
 ## 常见问题
 
-**Q：能直接用来做实盘交易吗？**
+### HarvestCast 能直接用来实盘交易吗？
 不能。输出是概率区间，不是交易信号；没有仓位、风控、执行环节。回测也不含滑点与手续费。
 
-**Q：为什么某些品种一直告警 MASE ≥ 1？**
+### 为什么某些品种一直告警 MASE ≥ 1？
 说明该品种当前模型没跑赢「去年同月」这种朴素基准。这在月度农产品上很常见（近似随机游走）。正确处理是降低该品种权重、补数据、换特征，而不是调参把指标刷绿。
 
-**Q：为什么一打开全是「告警」？**
-因为只有行情、还没有基本面因子。系统会把「缺少基本面因子」如实标为告警，并说明当前是纯价格模型、不输出情景。到「LLM 抽取配置」导出一份提示词补上因子，重跑即可。
+### 为什么打开界面全是「告警」？
+只有行情、没有基本面因子时会如实告警：当前是纯价格模型、不输出情景。到「LLM 抽取配置」补因子后重跑即恢复。
 
-**Q：首次运行没网 / 拉不到行情怎么办？**
-`init` 会先把新浪通道的错误、再回退 AKShare 的错误都打印出来，然后退出——**不会写任何假数据**。确认网络后重试，或显式 `python -m src.cli init --allow-demo` 用合成数据演示流程（界面会标注 demo 来源）。
+### 首次运行没网 / 拉不到行情怎么办？
+`init` 会把新浪与 AKShare 两个通道的失败原因都打印出来再退出，**不会写任何假数据**。确认网络后重试，或 `python -m src.cli init --allow-demo` 用合成数据演示流程。
 
-**Q：没有 API Key 能用吗？**
-能。手工模式把提示词复制到任意联网模型，把 JSON 粘回来即可，校验链路完全一致。
+### 没有 API Key 能用吗？
+能。手工模式把提示词复制到任意联网模型，把返回的 JSON 粘回来即可；校验链路与 API 模式完全一致。
 
-**Q：能加新品种吗？**
-在 `config/varieties.json` 增加一条（id / 交易所 / 代码 / 分类 / 收获月 / 合约周期 / 价格带 / 关键因子），然后 `python -m src.cli init --variety <id>` 拉数据即可。合约代码规则是「代码 + 0」取主力连续，「代码 + YYMM」取远月。
+### HarvestCast 支持哪些品种？
+22 个，分四类：谷物（玉米、玉米淀粉、粳米、晚籼稻、早籼稻、强麦）、油脂油料（豆一、豆二、豆粕、豆油、棕榈油、菜粕、菜籽油、油菜籽、花生）、软商品（白糖、棉花、天然橡胶）、生鲜（苹果、红枣、生猪、鸡蛋）。完整清单见 `config/varieties.json`。
 
-**Q：为什么不内置数据库？**
-数据量在 MB 级，文件即接口带来三个好处：可 git diff、可人工核对、可复现。需要规模化时再换 DuckDB/Parquet，不影响上层。
+### HarvestCast 需要哪些依赖和硬件？
+Python ≥ 3.9 即可，运行时零第三方依赖，不需要 GPU，也不需要数据库。statsmodels / LightGBM / AKShare 是可选加速包，缺失时自动回退内置实现。
 
-**Q：LLM 抽取结果可以直接信吗？**
-不可以。每条记录都带置信度与原文摘录，目的是**把人从"找资料"里解放出来，而不是从"判断"里解放出来**。低置信、无来源的记录不会进训练集。
+### HarvestCast 和直接问大模型要价格预测有什么区别？
+通用大模型给的是不可复现、无法回测的自然语言判断，且常带幻觉。HarvestCast 里 LLM 只做一件事：把公开资料结构化成带来源、带原文摘录的基本面因子；价格区间由可复现的数学模型给出，并经滚动回测与九项经济学逻辑校验。
 
----
+### HarvestCast 是免费的吗？可以商用吗？
+代码采用 MIT 协议，可免费商用。数据是另一回事：新浪/AKShare 行情的商用授权需另行取得，仓库不随附任何真实行情数据。
+
+### 能加新品种吗？
+在 `config/varieties.json` 加一条（id / 交易所 / 代码 / 分类 / 收获月 / 合约周期 / 价格带 / 关键因子），然后 `python -m src.cli init --variety <id>`。合约代码规则：`代码+0` 主力连续，`代码+YYMM` 远月。
+
+### 为什么不内置数据库？
+MB 级数据量，文件即接口：可 git diff、可人工核对、可复现。规模化时换 DuckDB/Parquet，只改 `store.py`。
+
+### HarvestCast 如何保证不用未来数据？
+三道闸：因子按发布日可见；滚动统计一律 expanding（只回看）；训练集按时间前缀切分、回测逐起点扩张。单测「篡改末期价格、断言历史特征不变」守住这条线。
+
+### LLM 抽取结果可以直接信吗？
+不可以。每条记录带置信度与原文摘录，低置信、无来源、含价格预测表述的记录不进训练集——它把人从「找资料」解放出来，不是从「判断」解放出来。
+
+## 参考与数据来源
+
+- 中国农产品供需形势分析（农业农村部市场信息司）：http://moa.gov.cn/
+- 大连商品交易所：http://www.dce.com.cn/ · 郑州商品交易所：http://www.czce.com.cn/ · 上海期货交易所：https://www.shfe.com.cn/
+- USDA 世界农产品供需展望报告（WASDE）：https://www.usda.gov/oce/commodity/wasde/
+- 优化方法参考：Aggarwal et al., *GEO: Generative Engine Optimization*, KDD 2024（arXiv:2311.09735）——本仓库文档采用其「引用来源 / 统计数据 / 定义前置」三项实证结论组织内容
 
 ## 贡献指南
 

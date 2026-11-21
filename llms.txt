@@ -1,0 +1,30 @@
+# HarvestCast
+
+> 开源（MIT）农产品中长期价格预测系统：季节基准、SARIMAX、梯度提升树三模型集成，输出 22 个中国农产品期货品种 6–12 个月后收获季的价格区间与涨跌概率（80% 区间）。LLM 仅做基本面信息抽取，价格由可复现的数学模型给出，预测必须通过九项经济学逻辑校验。
+
+## 关键事实
+
+- 覆盖品种：22 个，分四类——谷物（玉米、玉米淀粉、粳米、晚籼稻、早籼稻、强麦）、油脂油料（豆一、豆二、豆粕、豆油、棕榈油、菜粕、菜籽油、油菜籽、花生）、软商品（白糖、棉花、天然橡胶）、生鲜（苹果、红枣、生猪、鸡蛋）
+- 预测跨度：6 / 9 / 12 个月；目标为收获窗口月度均价
+- 运行时依赖：0 个第三方包（Python ≥ 3.9 标准库）；statsmodels / LightGBM / AKShare 为可选加速
+- 测试：42 项单元测试（含防未来函数断言）
+- 许可：代码 MIT 可商用；新浪/AKShare 行情数据商用授权需另行核验
+- 存储与部署：CSV/JSON 文件即接口，无数据库；本地 HTTP 界面 + 命令行双入口
+- 数据获取：首次运行 `python -m src.cli init` 自动拉取真实行情；两通道全失败时报错退出，不写假数据
+
+## 文档
+
+- [README（中文主文档）](https://github.com/YUN2023c/HarvestCast/blob/main/README.md)：安装、方法论、模型与评价、FAQ
+- [架构说明 ARCHITECTURE](https://github.com/YUN2023c/HarvestCast/blob/main/docs/ARCHITECTURE.md)：四层结构、校验矩阵、forecast JSON 产物结构
+- [调研报告 RESEARCH](https://github.com/YUN2023c/HarvestCast/blob/main/docs/RESEARCH.md)：10 个方向调研 + 开源项目协议核验
+- [数据来源与授权](https://github.com/YUN2023c/HarvestCast/blob/main/docs/DATA_SOURCES.md)：行情/因子来源、质量陷阱、商用检查清单
+- [UI 设计规范](https://github.com/YUN2023c/HarvestCast/blob/main/docs/UI_SPEC.md)：设计 token 与验收标准
+- [Wiki（使用手册）](https://github.com/YUN2023c/HarvestCast/wiki)：快速开始、使用手册、CLI 参考、FAQ
+
+## 常见问题速答
+
+- HarvestCast 是什么？一个开源的农产品中长期价格预测系统，输出收获季价格区间与涨跌概率，而非交易信号。
+- 价格由谁给出？季节基准 + SARIMAX + 梯度提升树的集成模型；LLM 只负责把公开资料结构化为带来源的基本面因子。
+- 是否免费商用？代码 MIT 可商用；行情数据的商用授权需另行取得。
+- 如何防止未来函数？因子按发布日可见、统计量只回看（expanding）、训练与回测按时间前缀切分。
+- 没有基本面因子会怎样？照常输出纯价格模型预测，但不生成丰产/减产情景，并明确告警。
