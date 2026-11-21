@@ -3,6 +3,7 @@
 > 在**播种时点**回答一个问题：6–12 个月后的**收获季**，这个品种的价格大概落在哪个区间，涨的概率有多大。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-276B56.svg)](./LICENSE)
+[![Wiki](https://img.shields.io/badge/docs-Wiki-4E9C80.svg)](https://github.com/YUN2023c/HarvestCast/wiki)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB.svg)](https://www.python.org/)
 [![Runtime deps](https://img.shields.io/badge/runtime%20deps-0-brightgreen.svg)](./requirements-optional.txt)
 [![Models](https://img.shields.io/badge/models-Seasonal%20%7C%20SARIMAX%20%7C%20GBM-4E9C80.svg)](#方法论)
