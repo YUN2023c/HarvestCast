@@ -1,0 +1,133 @@
+{
+  "$comment": "第三方组件与数据源清单。机器可读版；人读版见 THIRD_PARTY_NOTICES.md。",
+  "version": "2.0.0",
+  "updated_at": "2026-11-21",
+  "policy": {
+    "allowed": [
+      "MIT",
+      "Apache-2.0",
+      "BSD-2-Clause",
+      "BSD-3-Clause",
+      "PSF-2.0",
+      "ISC"
+    ],
+    "forbidden": [
+      "GPL-2.0",
+      "GPL-3.0",
+      "LGPL-2.1",
+      "LGPL-3.0",
+      "AGPL-3.0"
+    ],
+    "note": "本项目只允许复用宽松协议代码；强传染协议（GPL/LGPL/AGPL）一律不引入。框架协议与数据授权分开核验：MIT 的抓取库不等于上游行情可商用。"
+  },
+  "components": [
+    {
+      "name": "HarvestCast",
+      "project": "本项目",
+      "license": "MIT",
+      "commercial": true,
+      "use": "预测系统主体（数据管线 / 模型 / 界面）",
+      "copyright": "Copyright (c) 2026 HarvestCast contributors",
+      "modified": false
+    },
+    {
+      "name": "Python",
+      "project": "python.org",
+      "license": "PSF-2.0",
+      "commercial": true,
+      "use": "运行时（仅标准库，无第三方运行时依赖）",
+      "copyright": "Python Software Foundation",
+      "modified": false
+    },
+    {
+      "name": "statsmodels",
+      "project": "statsmodels/statsmodels",
+      "license": "BSD-3-Clause",
+      "commercial": true,
+      "use": "可选：完整 SARIMAX 对照实现",
+      "copyright": "Copyright (c) 2009-2026 Statsmodels Developers",
+      "modified": false
+    },
+    {
+      "name": "LightGBM",
+      "project": "microsoft/LightGBM",
+      "license": "MIT",
+      "commercial": true,
+      "use": "可选：梯度提升树后端",
+      "copyright": "Copyright (c) Microsoft Corporation",
+      "modified": false
+    },
+    {
+      "name": "NumPy",
+      "project": "numpy/numpy",
+      "license": "BSD-3-Clause",
+      "commercial": true,
+      "use": "可选：被 statsmodels / LightGBM 间接依赖",
+      "copyright": "Copyright (c) NumPy Developers",
+      "modified": false
+    },
+    {
+      "name": "pandas",
+      "project": "pandas-dev/pandas",
+      "license": "BSD-3-Clause",
+      "commercial": true,
+      "use": "可选：被 AKShare / statsmodels 间接依赖",
+      "copyright": "Copyright (c) pandas Development Team",
+      "modified": false
+    },
+    {
+      "name": "Prophet",
+      "project": "facebook/prophet",
+      "license": "MIT",
+      "commercial": true,
+      "use": "可选参考实现，未默认引入",
+      "copyright": "Copyright (c) Facebook, Inc.",
+      "modified": false
+    },
+    {
+      "name": "AKShare",
+      "project": "akfamily/akshare",
+      "license": "MIT",
+      "commercial": true,
+      "use": "可选：备用行情通道",
+      "copyright": "Copyright (c) 2019-2026 Albert King",
+      "modified": true,
+      "modification": "仅通过 futures_zh_daily_sina 取日线并聚合为月度；未修改其源码"
+    }
+  ],
+  "data_sources": [
+    {
+      "name": "新浪财经期货日线接口",
+      "license": "无正式商用授权（个人研究/演示）",
+      "commercial": false,
+      "use": "默认行情通道，标准库 urllib 直连，不引入第三方代码",
+      "note": "商用前必须取得数据源授权；仓库不随附任何抓取结果"
+    },
+    {
+      "name": "AKShare 上游行情",
+      "license": "以各上游站点条款为准",
+      "commercial": false,
+      "use": "演示/研究用途；商用前须逐源核验授权",
+      "note": "本项目不随附任何真实行情数据，仓库内 data/ 为脚本生成的合成数据"
+    },
+    {
+      "name": "LLM 调研来源",
+      "license": "以原始报告/公告为准",
+      "commercial": false,
+      "use": "由使用者自行检索与核验，系统仅保存摘录与链接",
+      "note": "每条因子强制记录 source_url 与 evidence_quote，便于人工复核"
+    }
+  ],
+  "not_used": [
+    {
+      "name": "Backtrader",
+      "license": "GPL-3.0",
+      "reason": "强传染协议，已排除"
+    },
+    {
+      "name": "PyQt / PySide",
+      "license": "GPL/LGPL",
+      "reason": "强传染协议，UI 采用原生 HTML"
+    }
+  ]
+}

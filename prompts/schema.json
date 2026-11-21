@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/your-org/harvestcast/schemas/fundamental_extraction.schema.json",
+  "title": "HarvestCast 基本面因子抽取结果",
+  "description": "LLM 联网调研后的结构化产出。只允许事实类信息，禁止任何价格预测字段。兼容 OpenAI strict structured output：每个 object 均显式 additionalProperties:false，全部字段进入 required，可空字段用 type:[T,null]。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "variety_id",
+    "as_of_date",
+    "research_window",
+    "factors",
+    "events",
+    "data_gaps",
+    "refusal",
+    "refusal_reason",
+    "meta"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["1.0.0"],
+      "description": "抽取结果模式版本，必须与 prompts/schema.json 的版本一致。"
+    },
+    "variety_id": {
+      "type": "string",
+      "enum": ["corn", "soybean", "sugar", "cotton", "apple", "hog"],
+      "description": "被调研品种的机器标识。"
+    },
+    "as_of_date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "本批信息的可用截止日（信息截止，不是生成日），用于防止未来函数。"
+    },
+    "research_window": {
+      "type": "string",
+      "description": "调研覆盖的时间窗，如 2026-01-01/2026-09-30。"
+    },
+    "factors": {
+      "type": "array",
+      "maxItems": 40,
+      "description": "基本面因子观测。同一 factor_id 可有多条（不同周期/来源），下游按 as_of 与置信度取用。",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "factor_id",
+          "value",
+          "unit",
+          "period",
+          "as_of_date",
+          "direction",
+          "confidence",
+          "source_title",
+          "source_url",
+          "source_date",
+          "evidence_quote",
+          "notes"
+        ],
+        "properties": {
+          "factor_id": {
+            "type": "string",
+            "enum": [
+              "production_est",
+              "supply_area",
+              "supply_yield",
+              "inventory_stock",
+              "import_volume",
+              "export_volume",
+              "feed_demand",
+              "processing_demand",
+              "policy_subsidy",
+              "weather_anomaly",
+              "fertilizer_cost",
+              "freight_cost",
+              "substitute_price"
+            ],
+            "description": "因子标识，必须来自枚举，禁止自造字段。"
+          },
+          "value": {
+            "type": ["number", "null"],
+            "description": "数值。无法量化时填 null，并在 notes 说明，不允许编造。"
+          },
+          "unit": {
+            "type": "string",
+            "description": "计量单位，如 万吨 / 元/吨 / 指数 / 百分数。必须与数值实际单位一致。"
+          },
+          "period": {
+            "type": "string",
+            "description": "数据所属周期，月度用 YYYY-MM，季度用 YYYY-Q1，年度用 YYYY，日度用 YYYY-MM-DD。"
+          },
+          "as_of_date": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+            "description": "该数据实际公开发布日期（公告/报告发布日），不是预测期。"
+          },
+          "direction": {
+            "type": "string",
+            "enum": ["bullish", "bearish", "neutral"],
+            "description": "该因子对价格的利多/利空方向（bullish=推涨，bearish=压跌）。"
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "对数值可靠性的自评置信度，0-1。低于阈值的记录不会进入训练集。"
+          },
+          "source_title": {
+            "type": "string",
+            "description": "来源标题（报告/新闻/公告名称）。"
+          },
+          "source_url": {
+            "type": "string",
+            "description": "来源链接。无链接填 \"N/A\"，该条记录将被降权或丢弃。"
+          },
+          "source_date": {
+            "type": "string",
+            "description": "来源发布日期 YYYY-MM-DD，无则填 unknown。"
+          },
+          "evidence_quote": {
+            "type": "string",
+            "description": "支撑该数值的原文摘录（不超过 200 字），用于人工复核。"
+          },
+          "notes": {
+            "type": "string",
+            "description": "口径说明、修订情况、疑点。可为空字符串。"
+          }
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "maxItems": 20,
+      "description": "政策/天气/贸易等离散事件，用于情景分析与逻辑校验。",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["event_id", "title", "event_date", "impact", "magnitude", "confidence", "source_url"],
+        "properties": {
+          "event_id": { "type": "string", "description": "短横线小写英文标识，如 tariff-adjust-2026。" },
+          "title": { "type": "string", "description": "事件一句话标题。" },
+          "event_date": { "type": "string", "description": "事件发生或生效日期 YYYY-MM-DD。" },
+          "impact": {
+            "type": "string",
+            "enum": ["supply_shock", "demand_shock", "trade_policy", "weather", "cost", "other"],
+            "description": "事件类型。"
+          },
+          "magnitude": {
+            "type": "string",
+            "enum": ["small", "medium", "large"],
+            "description": "影响量级粗分类。"
+          },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1, "description": "事件真实性置信度。" },
+          "source_url": { "type": "string", "description": "来源链接。" }
+        }
+      }
+    },
+    "data_gaps": {
+      "type": "array",
+      "maxItems": 15,
+      "items": { "type": "string" },
+      "description": "未能取到的关键数据项，逐条列出，供人工补充。"
+    },
+    "refusal": {
+      "type": "boolean",
+      "description": "模型无法按 schema 产出时置 true，其余数组留空。"
+    },
+    "refusal_reason": {
+      "type": ["string", "null"],
+      "description": "refusal=true 时的原因说明。"
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "generated_at", "search_queries", "mode"],
+      "properties": {
+        "model": { "type": "string", "description": "实际产出该 JSON 的模型名，手工模式填模型自报名或 manual-unknown。" },
+        "generated_at": { "type": "string", "description": "生成时间 ISO8601。" },
+        "search_queries": {
+          "type": "array",
+          "maxItems": 12,
+          "items": { "type": "string" },
+          "description": "实际使用过的检索词，便于复盘覆盖度。"
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["api", "manual"],
+          "description": "产出模式。两种模式必须产出完全一致的结构。"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "$comment": "复制为 settings.json 后修改。API Key 也可用环境变量 HARVESTCAST_API_KEY 覆盖，避免写进文件。",
+  "version": "1.0.0",
+  "llm": {
+    "mode": "manual",
+    "provider": "openai-compatible",
+    "base_url": "https://api.openai.com/v1",
+    "model": "gpt-4.1-mini",
+    "api_key_env": "HARVESTCAST_API_KEY",
+    "temperature": 0.1,
+    "max_output_tokens": 4000,
+    "timeout_seconds": 120,
+    "enable_web_search": true,
+    "search_tool": "web_search_preview",
+    "min_confidence": 0.55,
+    "require_source": true,
+    "retry": 2
+  },
+  "data": {
+    "market_source": "akshare",
+    "fundamental_source": "llm",
+    "monthly_agg": "last",
+    "outlier_mad_k": 4.0,
+    "max_forward_fill_months": 2,
+    "asof_lag_days": 1
+  },
+  "model": {
+    "horizons_months": [6, 9, 12],
+    "min_train_months": 60,
+    "cv_folds": 4,
+    "sarimax": { "p_max": 2, "sp_max": 1, "include_exog": true, "max_exog": 3 },
+    "gbm": {
+      "n_estimators": 220,
+      "learning_rate": 0.05,
+      "max_depth": 3,
+      "min_leaf": 8,
+      "subsample": 0.85,
+      "feature_fraction": 0.85,
+      "seed": 42
+    },
+    "ensemble": { "method": "inverse_mse", "floor_weight": 0.05 },
+    "interval": { "level": 0.8, "conformal_pad": true }
+  },
+  "econ": {
+    "far_month_tolerance": 0.18,
+    "max_interval_width": 0.75,
+    "min_probability": 0.03,
+    "elasticity_bounds": [-3.0, 2.0],
+    "block_on_error": false
+  },
+  "server": { "host": "127.0.0.1", "port": 8848 }
+}

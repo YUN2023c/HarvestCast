@@ -1,0 +1,925 @@
+{
+  "$comment": "品种主数据。新增品种只需在此追加一条，再运行 python -m src.cli init --variety <id>。harvest_months 决定远期目标时间点；contract_cycle 用于挑选远月合约；sanity_price_band 供经济学校验；category 用于界面分组。",
+  "version": "2.0.0",
+  "sina_symbol_rule": "<ticker>0（主力连续），远月合约为 <ticker><YY><MM>",
+  "categories": [
+    "谷物",
+    "油脂油料",
+    "软商品",
+    "生鲜"
+  ],
+  "varieties": [
+    {
+      "id": "corn",
+      "name_cn": "玉米",
+      "name_en": "Corn",
+      "exchange": "DCE",
+      "ticker": "C",
+      "category": "谷物",
+      "unit": "元/吨",
+      "price_digits": 0,
+      "planting_months": [
+        4,
+        5
+      ],
+      "harvest_months": [
+        9,
+        10,
+        11
+      ],
+      "contract_cycle": [
+        1,
+        5,
+        9
+      ],
+      "storage_months": 12,
+      "sanity_price_band": [
+        1400,
+        3600
+      ],
+      "key_factors": [
+        "production_est",
+        "inventory_stock",
+        "feed_demand",
+        "import_volume",
+        "weather_anomaly",
+        "policy_subsidy"
+      ]
+    },
+    {
+      "id": "cornstarch",
+      "name_cn": "玉米淀粉",
+      "name_en": "Corn Starch",
+      "exchange": "DCE",
+      "ticker": "CS",
+      "category": "谷物",
+      "unit": "元/吨",
+      "price_digits": 0,
+      "planting_months": [
+        6,
+        7
+      ],
+      "harvest_months": [
+        10,
+        11,
+        12
+      ],
+      "contract_cycle": [
+        1,
+        5,
+        9
+      ],
+      "storage_months": 9,
+      "sanity_price_band": [
+        1700,
+        4200
+      ],
+      "key_factors": [
+        "production_est",
+        "inventory_stock",
+        "processing_demand",
+        "fertilizer_cost"
+      ]
+    },
+    {
+      "id": "soybean",
+      "name_cn": "豆一",
+      "name_en": "Soybean No.1",
+      "exchange": "DCE",
+      "ticker": "A",
+      "category": "油脂油料",
+      "unit": "元/吨",
+      "price_digits": 0,
+      "planting_months": [
+        5,
+        6
+      ],
+      "harvest_months": [
+        9,
+        10
+      ],
+      "contract_cycle": [
+        1,
+        5,
+        9
+      ],
+      "storage_months": 12,
+      "sanity_price_band": [
+        3200,
+        6500
+      ],
+      "key_factors": [
+        "production_est",
+        "import_volume",
+        "processing_demand",
+        "inventory_stock",
+        "weather_anomaly"
+      ]
+    },
+    {
+      "id": "soybean2",
+      "name_cn": "豆二",
+      "name_en": "Soybean No.2",
+      "exchange": "DCE",
+      "ticker": "B",
+      "category": "油脂油料",
+      "unit": "元/吨",
+      "price_digits": 0,
+      "planting_months": [
+        8,
+        9
+      ],
+      "harvest_months": [
+        9,
+        10,
+        11
+      ],
+      "contract_cycle": [
+        1,
+        3,
+        5,
+        7,
+        9,
+        11
+      ],
+      "storage_months": 8,
+      "sanity_price_band": [
+        2800,
+        5500
+      ],
+      "key_factors": [
+        "import_volume",
+        "inventory_stock",
+        "processing_demand",
+        "substitute_price"
+      ]
+    },
+    {
+      "id": "soymeal",
+      "name_cn": "豆粕",
+      "name_en": "Soybean Meal",
+      "exchange": "DCE",
+      "ticker": "M",
+      "category": "油脂油料",
+      "unit": "元/吨",
+      "price_digits": 0,
+      "planting_months": [
+        10,
+        11
+      ],
+      "harvest_months": [
+        10,
+        11,
+        12
+      ],
+      "contract_cycle": [
+        1,
+        3,
+        5,
+        7,
+        9,
+        11
+      ],
+      "storage_months": 4,
+      "sanity_price_band": [
+        2200,
+        4800
+      ],
+      "key_factors": [
+        "processing_demand",
+        "feed_demand",
+        "inventory_stock",
+        "import_volume"
+      ]
+    },
+    {
+      "id": "soyoil",
+      "name_cn": "豆油",
+      "name_en": "Soybean Oil",
+      "exchange": "DCE",
+      "ticker": "Y",
+      "category": "油脂油料",
+      "unit": "元/吨",
+      "price_digits": 0,
+      "planting_months": [
+        10,
+        11
+      ],
+      "harvest_months": [
+        10,
+        11,
+        12
+      ],
+      "contract_cycle": [
+        1,
+        3,
+        5,
+        7,
+        9,
+        11
+      ],
+      "storage_months": 6,
+      "sanity_price_band": [
+        5500,
+        12000
+      ],
+      "key_factors": [
+        "processing_demand",
+        "inventory_stock",
+        "substitute_price",
+        "import_volume"
+      ]
+    },
+    {
+      "id": "palm",
+      "name_cn": "棕榈油",
+      "name_en": "Palm Oil",
+      "exchange": "DCE",
+      "ticker": "P",
+      "category": "油脂油料",
+      "unit": "元/吨",
+      "price_digits": 0,
+      "planting_months": [
+        9,
+        10
+      ],
+      "harvest_months": [
+        9,
+        10,
+        11
+      ],
+      "contract_cycle": [
+        1,
+        3,
+        5,
+        7,
+        9,
+        11
+      ],
+      "storage_months": 6,
+      "sanity_price_band": [
+        4000,
+        12000
+      ],
+      "key_factors": [
+        "production_est",
+        "import_volume",
+        "inventory_stock",
+        "weather_anomaly"
+      ]
+    },
+    {
+      "id": "rapemeal",
+      "name_cn": "菜粕",
+      "name_en": "Rapeseed Meal",
+      "exchange": "CZCE",
+      "ticker": "RM",
+      "category": "油脂油料",
+      "unit": "元/吨",
+      "price_digits": 0,
+      "planting_months": [
+        10,
+        11
+      ],
+      "harvest_months": [
+        10,
+        11,
+        12
+      ],
+      "contract_cycle": [
+        1,
+        3,
+        5,
+        7,
+        9,
+        11
+      ],
+      "storage_months": 4,
+      "sanity_price_band": [
+        1800,
+        4200
+      ],
+      "key_factors": [
+        "processing_demand",
+        "feed_demand",
+        "inventory_stock",
+        "import_volume"
+      ]
+    },
+    {
+      "id": "rapeseedoil",
+      "name_cn": "菜籽油",
+      "name_en": "Rapeseed Oil",
+      "exchange": "CZCE",
+      "ticker": "OI",
+      "category": "油脂油料",
+      "unit": "元/吨",
+      "price_digits": 0,
+      "planting_months": [
+        10,
+        11
+      ],
+      "harvest_months": [
+        10,
+        11,
+        12
+      ],
+      "contract_cycle": [
+        1,
+        3,
+        5,
+        7,
+        9,
+        11
+      ],
+      "storage_months": 6,
+      "sanity_price_band": [
+        7000,
+        15000
+      ],
+      "key_factors": [
+        "processing_demand",
+        "inventory_stock",
+        "policy_subsidy",
+        "substitute_price"
+      ]
+    },
+    {
+      "id": "rapeseed",
+      "name_cn": "油菜籽",
+      "name_en": "Rapeseed",
+      "exchange": "CZCE",
+      "ticker": "RS",
+      "category": "油脂油料",
+      "unit": "元/吨",
+      "price_digits": 0,
+      "planting_months": [
+        3,
+        4
+      ],
+      "harvest_months": [
+        5,
+        6
+      ],
+      "contract_cycle": [
+        7,
+        8,
+        9,
+        11
+      ],
+      "storage_months": 6,
+      "sanity_price_band": [
+        4000,
+        8000
+      ],
+      "key_factors": [
+        "production_est",
+        "weather_anomaly",
+        "processing_demand",
+        "policy_subsidy"
+      ]
+    },
+    {
+      "id": "peanut",
+      "name_cn": "花生",
+      "name_en": "Peanut",
+      "exchange": "CZCE",
+      "ticker": "PK",
+      "category": "油脂油料",
+      "unit": "元/吨",
+      "price_digits": 0,
+      "planting_months": [
+        4,
+        5
+      ],
+      "harvest_months": [
+        9,
+        10,
+        11
+      ],
+      "contract_cycle": [
+        1,
+        3,
+        5,
+        10,
+        11
+      ],
+      "storage_months": 8,
+      "sanity_price_band": [
+        7000,
+        13000
+      ],
+      "key_factors": [
+        "production_est",
+        "weather_anomaly",
+        "processing_demand",
+        "inventory_stock"
+      ]
+    },
+    {
+      "id": "sugar",
+      "name_cn": "白糖",
+      "name_en": "White Sugar",
+      "exchange": "CZCE",
+      "ticker": "SR",
+      "category": "软商品",
+      "unit": "元/吨",
+      "price_digits": 0,
+      "planting_months": [
+        3,
+        4
+      ],
+      "harvest_months": [
+        11,
+        12,
+        1
+      ],
+      "contract_cycle": [
+        1,
+        5,
+        9
+      ],
+      "storage_months": 10,
+      "sanity_price_band": [
+        4200,
+        8000
+      ],
+      "key_factors": [
+        "production_est",
+        "import_volume",
+        "inventory_stock",
+        "policy_subsidy",
+        "weather_anomaly"
+      ]
+    },
+    {
+      "id": "cotton",
+      "name_cn": "棉花",
+      "name_en": "Cotton",
+      "exchange": "CZCE",
+      "ticker": "CF",
+      "category": "软商品",
+      "unit": "元/吨",
+      "price_digits": 0,
+      "planting_months": [
+        4,
+        5
+      ],
+      "harvest_months": [
+        9,
+        10,
+        11
+      ],
+      "contract_cycle": [
+        1,
+        5,
+        9
+      ],
+      "storage_months": 12,
+      "sanity_price_band": [
+        11000,
+        24000
+      ],
+      "key_factors": [
+        "production_est",
+        "inventory_stock",
+        "processing_demand",
+        "import_volume",
+        "weather_anomaly"
+      ]
+    },
+    {
+      "id": "rubber",
+      "name_cn": "天然橡胶",
+      "name_en": "Natural Rubber",
+      "exchange": "SHFE",
+      "ticker": "RU",
+      "category": "软商品",
+      "unit": "元/吨",
+      "price_digits": 0,
+      "planting_months": [
+        3,
+        4
+      ],
+      "harvest_months": [
+        11,
+        12,
+        1
+      ],
+      "contract_cycle": [
+        1,
+        5,
+        9
+      ],
+      "storage_months": 9,
+      "sanity_price_band": [
+        9000,
+        25000
+      ],
+      "key_factors": [
+        "production_est",
+        "inventory_stock",
+        "import_volume",
+        "weather_anomaly",
+        "freight_cost"
+      ]
+    },
+    {
+      "id": "apple",
+      "name_cn": "苹果",
+      "name_en": "Apple",
+      "exchange": "CZCE",
+      "ticker": "AP",
+      "category": "生鲜",
+      "unit": "元/吨",
+      "price_digits": 0,
+      "planting_months": [
+        3,
+        4
+      ],
+      "harvest_months": [
+        10,
+        11
+      ],
+      "contract_cycle": [
+        1,
+        5,
+        10
+      ],
+      "storage_months": 8,
+      "sanity_price_band": [
+        5000,
+        12000
+      ],
+      "key_factors": [
+        "production_est",
+        "inventory_stock",
+        "weather_anomaly",
+        "processing_demand"
+      ]
+    },
+    {
+      "id": "jujube",
+      "name_cn": "红枣",
+      "name_en": "Jujube",
+      "exchange": "CZCE",
+      "ticker": "CJ",
+      "category": "生鲜",
+      "unit": "元/吨",
+      "price_digits": 0,
+      "planting_months": [
+        4,
+        5
+      ],
+      "harvest_months": [
+        10,
+        11,
+        12
+      ],
+      "contract_cycle": [
+        1,
+        5,
+        9
+      ],
+      "storage_months": 10,
+      "sanity_price_band": [
+        7000,
+        18000
+      ],
+      "key_factors": [
+        "production_est",
+        "inventory_stock",
+        "weather_anomaly",
+        "processing_demand"
+      ]
+    },
+    {
+      "id": "hog",
+      "name_cn": "生猪",
+      "name_en": "Lean Hog",
+      "exchange": "DCE",
+      "ticker": "LH",
+      "category": "生鲜",
+      "unit": "元/吨",
+      "price_digits": 0,
+      "planting_months": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "harvest_months": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "contract_cycle": [
+        1,
+        3,
+        5,
+        7,
+        9,
+        11
+      ],
+      "storage_months": 0,
+      "sanity_price_band": [
+        9000,
+        32000
+      ],
+      "key_factors": [
+        "production_est",
+        "feed_demand",
+        "policy_subsidy",
+        "weather_anomaly"
+      ]
+    },
+    {
+      "id": "egg",
+      "name_cn": "鸡蛋",
+      "name_en": "Egg",
+      "exchange": "DCE",
+      "ticker": "JD",
+      "category": "生鲜",
+      "unit": "元/500千克",
+      "price_digits": 0,
+      "planting_months": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "harvest_months": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "contract_cycle": [
+        1,
+        5,
+        9
+      ],
+      "storage_months": 0,
+      "sanity_price_band": [
+        2500,
+        6000
+      ],
+      "key_factors": [
+        "production_est",
+        "feed_demand",
+        "weather_anomaly",
+        "substitute_price"
+      ]
+    },
+    {
+      "id": "rice_j",
+      "name_cn": "粳米",
+      "name_en": "Japonica Rice",
+      "exchange": "DCE",
+      "ticker": "RR",
+      "category": "谷物",
+      "unit": "元/吨",
+      "price_digits": 0,
+      "planting_months": [
+        5,
+        6
+      ],
+      "harvest_months": [
+        10,
+        11,
+        12
+      ],
+      "contract_cycle": [
+        1,
+        5,
+        9
+      ],
+      "storage_months": 10,
+      "sanity_price_band": [
+        2800,
+        4200
+      ],
+      "key_factors": [
+        "production_est",
+        "inventory_stock",
+        "policy_subsidy",
+        "weather_anomaly"
+      ]
+    },
+    {
+      "id": "rice_l",
+      "name_cn": "晚籼稻",
+      "name_en": "Late Indica Rice",
+      "exchange": "CZCE",
+      "ticker": "LR",
+      "category": "谷物",
+      "unit": "元/吨",
+      "price_digits": 0,
+      "planting_months": [
+        6,
+        7
+      ],
+      "harvest_months": [
+        10,
+        11
+      ],
+      "contract_cycle": [
+        1,
+        5,
+        9
+      ],
+      "storage_months": 10,
+      "sanity_price_band": [
+        2200,
+        3500
+      ],
+      "key_factors": [
+        "production_est",
+        "inventory_stock",
+        "policy_subsidy",
+        "weather_anomaly"
+      ]
+    },
+    {
+      "id": "rice_e",
+      "name_cn": "早籼稻",
+      "name_en": "Early Indica Rice",
+      "exchange": "CZCE",
+      "ticker": "RI",
+      "category": "谷物",
+      "unit": "元/吨",
+      "price_digits": 0,
+      "planting_months": [
+        3,
+        4
+      ],
+      "harvest_months": [
+        7,
+        8
+      ],
+      "contract_cycle": [
+        1,
+        5,
+        9
+      ],
+      "storage_months": 10,
+      "sanity_price_band": [
+        2000,
+        3200
+      ],
+      "key_factors": [
+        "production_est",
+        "inventory_stock",
+        "policy_subsidy",
+        "weather_anomaly"
+      ]
+    },
+    {
+      "id": "wheat",
+      "name_cn": "强麦",
+      "name_en": "Strong Gluten Wheat",
+      "exchange": "CZCE",
+      "ticker": "WH",
+      "category": "谷物",
+      "unit": "元/吨",
+      "price_digits": 0,
+      "planting_months": [
+        10,
+        11
+      ],
+      "harvest_months": [
+        6,
+        7
+      ],
+      "contract_cycle": [
+        1,
+        5,
+        9
+      ],
+      "storage_months": 12,
+      "sanity_price_band": [
+        2000,
+        3800
+      ],
+      "key_factors": [
+        "production_est",
+        "inventory_stock",
+        "policy_subsidy",
+        "weather_anomaly"
+      ]
+    }
+  ],
+  "factors": {
+    "production_est": {
+      "name_cn": "产量预估",
+      "unit": "万吨",
+      "sign": -1,
+      "release_lag_days": 30
+    },
+    "supply_area": {
+      "name_cn": "种植面积",
+      "unit": "万公顷",
+      "sign": -1,
+      "release_lag_days": 30
+    },
+    "supply_yield": {
+      "name_cn": "单产预估",
+      "unit": "吨/公顷",
+      "sign": -1,
+      "release_lag_days": 30
+    },
+    "inventory_stock": {
+      "name_cn": "库存",
+      "unit": "万吨",
+      "sign": -1,
+      "release_lag_days": 15
+    },
+    "import_volume": {
+      "name_cn": "进口量",
+      "unit": "万吨",
+      "sign": -1,
+      "release_lag_days": 20
+    },
+    "export_volume": {
+      "name_cn": "出口量",
+      "unit": "万吨",
+      "sign": 1,
+      "release_lag_days": 20
+    },
+    "feed_demand": {
+      "name_cn": "饲用需求",
+      "unit": "万吨",
+      "sign": 1,
+      "release_lag_days": 30
+    },
+    "processing_demand": {
+      "name_cn": "加工需求",
+      "unit": "万吨",
+      "sign": 1,
+      "release_lag_days": 30
+    },
+    "policy_subsidy": {
+      "name_cn": "政策补贴强度",
+      "unit": "指数",
+      "sign": 1,
+      "release_lag_days": 45
+    },
+    "weather_anomaly": {
+      "name_cn": "天气异常指数",
+      "unit": "σ",
+      "sign": 1,
+      "release_lag_days": 10
+    },
+    "fertilizer_cost": {
+      "name_cn": "化肥成本",
+      "unit": "元/吨",
+      "sign": 1,
+      "release_lag_days": 15
+    },
+    "freight_cost": {
+      "name_cn": "运费指数",
+      "unit": "指数",
+      "sign": 1,
+      "release_lag_days": 10
+    },
+    "substitute_price": {
+      "name_cn": "替代品价格",
+      "unit": "元/吨",
+      "sign": 1,
+      "release_lag_days": 5
+    }
+  }
+}

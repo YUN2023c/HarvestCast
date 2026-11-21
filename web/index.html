@@ -1,0 +1,1641 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>HarvestCast · 农产品中长期价格预测</title>
+<style>
+/* ============================================================
+   设计 token
+   ============================================================ */
+:root{
+  --bg:#EDF2EE;                       /* 页面底色：极浅的灰绿 */
+  --ink:#000000;                      /* 主文字 */
+  --ink-2:rgba(60,60,67,.60);         /* 次级文字 */
+  --ink-3:rgba(60,60,67,.42);         /* 弱化文字 */
+  --card:#FFFFFF;  --card-2:#F2F2F7;
+  --line:rgba(60,60,67,.29); --line-2:rgba(60,60,67,.20);
+  --fill-1:rgba(120,120,128,.20); --fill-2:rgba(120,120,128,.16);
+  --fill-3:rgba(118,118,128,.12); --fill-4:rgba(116,116,128,.08);
+  --brand:#276B56;                    /* 主色：强调、按钮、选中态文字 */
+  --brand-accent:#4E9C80;             /* 主色亮部：渐变、光晕 */
+  --brand-soft:rgba(39,107,86,.14);   /* 主色浅底：选中背景、标签底 */
+  --hairline:.5px;                    /* 全部描边一律 0.5px，禁止 1px 硬边 */
+  --r-card:24px; --r-sheet:30px; --r-el:14px;
+  --spring:cubic-bezier(.34,1.56,.64,1);
+  --lens:cubic-bezier(.32,.72,0,1);
+  --sheet:cubic-bezier(.22,1.2,.36,1);
+  --danger:#FF3B30; --warn:#FF9500; --attention:#FFCC00;
+  --sb-w:240px;
+}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg); color:var(--ink); min-height:100vh;
+  font-family:-apple-system,"SF Pro Text","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  font-size:14px; line-height:1.47;
+  font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;
+}
+/* 氛围光斑：只做气氛，不抢内容 */
+body::before{
+  content:""; position:fixed; inset:-10%; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(38% 42% at 14% 18%, rgba(78,156,128,.22), transparent 70%),
+    radial-gradient(34% 38% at 82% 12%, rgba(39,107,86,.14), transparent 72%),
+    radial-gradient(46% 46% at 78% 82%, rgba(120,160,140,.18), transparent 70%),
+    radial-gradient(40% 40% at 22% 88%, rgba(148,176,160,.16), transparent 72%);
+  filter:blur(10px) saturate(115%);
+  -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 7%,#000 93%,transparent 100%);
+  mask-image:linear-gradient(180deg,transparent 0,#000 7%,#000 93%,transparent 100%);
+}
+h1,h2,h3,h4,p,ul,ol{margin:0}
+a{color:var(--brand);text-decoration:none}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+::selection{background:var(--brand-soft)}
+
+/* ============================ 侧边导航 ============================ */
+.sidebar{
+  position:fixed; z-index:40; top:20px; left:16px; bottom:20px; width:var(--sb-w);
+  display:flex; flex-direction:column; padding:18px 12px 14px;
+  border-radius:30px;
+  background:rgba(249,249,251,.78);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);
+  backdrop-filter:blur(24px) saturate(180%);
+  box-shadow:0 18px 44px rgba(28,46,38,.16), 0 2px 8px rgba(28,46,38,.06);
+  border:var(--hairline) solid rgba(255,255,255,.62);
+  transform:translateX(0);
+  transition:transform .42s var(--sheet);
+}
+.brand{display:flex;align-items:center;gap:10px;padding:4px 10px 16px}
+.brand .mark{
+  width:30px;height:30px;border-radius:10px;flex:0 0 auto;
+  background:linear-gradient(150deg,var(--brand-accent),var(--brand));
+  box-shadow:0 6px 14px rgba(39,107,86,.28), inset 0 1px 0 rgba(255,255,255,.5);
+  display:grid;place-items:center;color:#fff;
+}
+.brand b{font-size:14.5px;font-weight:650;letter-spacing:-.01em;display:block}
+.brand span{font-size:10.5px;color:var(--ink-3);letter-spacing:.02em}
+
+.nav{position:relative;display:flex;flex-direction:column;gap:2px}
+.lens{
+  position:absolute; left:0; right:0; height:0; top:0; border-radius:var(--r-el);
+  background:rgba(255,255,255,.92);
+  box-shadow:0 6px 16px rgba(28,46,38,.12), 0 1px 2px rgba(28,46,38,.06);
+  border:var(--hairline) solid rgba(255,255,255,.9);
+  transition:top .28s var(--lens), height .28s var(--lens), opacity .2s linear;
+  pointer-events:none; opacity:0;
+}
+.nav-item{
+  position:relative; z-index:1; display:flex; align-items:center; gap:10px;
+  height:40px; padding:0 12px; border-radius:var(--r-el);
+  color:var(--ink-3); font-size:13px; letter-spacing:.01em;
+  transition:color .22s ease, transform .3s var(--spring), opacity .18s ease;
+}
+.nav-item svg{width:19px;height:19px;flex:0 0 auto;stroke-width:1.9;transition:stroke-width .2s ease}
+.nav-item.active{color:var(--brand);font-weight:560}
+.nav-item.active svg{stroke-width:2.1}
+.nav-item:active{transform:scale(.96);opacity:.85}
+.nav-item .dot{
+  position:absolute; right:10px; top:9px; width:7px; height:7px; border-radius:50%;
+  background:var(--danger); border:2px solid #fff; display:none;
+}
+.nav-item.has-dot .dot{display:block}
+
+/* 移动端触发按钮 */
+.nav-trigger{
+  display:none; position:fixed; z-index:45; left:14px; top:14px;
+  width:44px;height:44px;border-radius:16px;
+  background:rgba(249,249,251,.86);
+  -webkit-backdrop-filter:blur(20px) saturate(180%);
+  backdrop-filter:blur(20px) saturate(180%);
+  border:var(--hairline) solid rgba(255,255,255,.7);
+  box-shadow:0 10px 24px rgba(28,46,38,.16);
+  align-items:center;justify-content:center;color:var(--brand);
+  transition:transform .3s var(--spring);
+}
+.nav-trigger:active{transform:scale(.92)}
+.scrim{
+  position:fixed;inset:0;z-index:35;background:rgba(16,28,22,.28);
+  -webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);
+  opacity:0;pointer-events:none;transition:opacity .3s ease;
+}
+
+/* ============================ 主内容 ============================ */
+.main{
+  position:relative;z-index:1;
+  margin-left:calc(var(--sb-w) + 24px);
+  padding:20px 24px 56px;
+  display:flex;flex-direction:column;
+  transition:transform .34s var(--sheet), filter .3s ease;
+}
+.topbar{
+  position:sticky;top:14px;z-index:20;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:10px 14px;border-radius:22px;margin-bottom:18px;
+  background:rgba(255,255,255,.58);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);
+  backdrop-filter:blur(24px) saturate(180%);
+  box-shadow:0 14px 34px rgba(28,46,38,.12), 0 1px 3px rgba(28,46,38,.06),
+             inset 0 1px 0 rgba(255,255,255,.66);
+  border:var(--hairline) solid var(--line-2);
+}
+.variety-select{
+  appearance:none;border:0;background:var(--fill-3);border-radius:12px;
+  padding:8px 26px 8px 12px;font-size:13px;font-weight:560;color:var(--ink);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%233c3c43' stroke-opacity='.5' fill='none' stroke-width='1.4'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;
+}
+.seg{display:inline-flex;background:var(--fill-3);border-radius:12px;padding:2px;gap:2px}
+.seg button{padding:6px 10px;border-radius:10px;font-size:12px;color:var(--ink-2);transition:all .2s ease}
+.seg button.on{background:#fff;color:var(--brand);font-weight:600;box-shadow:0 1px 3px rgba(28,46,38,.12)}
+.spacer{flex:1}
+.btn{
+  display:inline-flex;align-items:center;gap:6px;justify-content:center;
+  flex:0 0 auto;white-space:nowrap;
+  padding:9px 16px;border-radius:999px;font-size:13px;font-weight:560;
+  background:var(--brand);color:#fff;
+  box-shadow:0 8px 18px rgba(39,107,86,.24), inset 0 1px 0 rgba(255,255,255,.22);
+  transition:transform .3s var(--spring), opacity .18s ease, box-shadow .2s ease;
+}
+.btn:active{transform:scale(.955);opacity:.9}
+.btn.ghost{background:var(--fill-3);color:var(--ink);box-shadow:none}
+.btn.ghost:active{background:var(--fill-1)}
+.btn[disabled]{opacity:.5;pointer-events:none}
+.btn.sm{padding:6px 12px;font-size:12px}
+
+h1.page-title{font-size:34px;font-weight:700;letter-spacing:-.02em;line-height:1.18;margin:2px 0 4px}
+.page-sub{font-size:13px;color:var(--ink-2);margin-bottom:18px}
+h2.sec{font-size:15.5px;font-weight:640;letter-spacing:-.01em;margin:22px 0 10px}
+h3.mini{font-size:12px;font-weight:600;color:var(--ink-2);letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px}
+
+/* 卡片：默认不透明，避免同屏玻璃过多 */
+.card{
+  background:var(--card);border-radius:var(--r-card);
+  border:var(--hairline) solid var(--line-2);
+  padding:16px 18px;margin-bottom:12px;
+  box-shadow:0 8px 22px rgba(28,46,38,.06);
+}
+.card.tight{padding:14px}
+.card.glass{
+  background:rgba(255,255,255,.58);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);
+  backdrop-filter:blur(24px) saturate(180%);
+  box-shadow:0 18px 44px rgba(28,46,38,.14), 0 2px 6px rgba(28,46,38,.06),
+             inset 0 1px 0 rgba(255,255,255,.66);
+}
+.card.soft{background:rgba(255,255,255,.74)}
+.row{display:flex;align-items:center;gap:10px}
+.between{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.muted{color:var(--ink-2);font-size:12.5px}
+.tiny{color:var(--ink-3);font-size:10.5px;line-height:1.5}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+
+/* Hero */
+.hero{position:relative;overflow:hidden}
+.hero .price{font-size:38px;font-weight:700;letter-spacing:-.025em;line-height:1.1}
+.hero .unit{font-size:13px;color:var(--ink-2);font-weight:500;margin-left:4px}
+.hero .band{font-size:12.5px;color:var(--ink-2);margin-top:6px}
+.chip{
+  display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;
+  font-size:11px;font-weight:560;background:var(--brand-soft);color:var(--brand);
+}
+.chip.gray{background:var(--fill-3);color:var(--ink-2)}
+.chip.red{background:rgba(255,59,48,.12);color:#C22A22}
+.chip.orange{background:rgba(255,149,0,.14);color:#8A5300}
+.chip.yellow{background:rgba(255,204,0,.18);color:#6E5800}
+.chip.green{background:var(--brand-soft);color:var(--brand)}
+
+/* 环形进度 */
+.ring-wrap{display:flex;align-items:center;gap:12px}
+.ring{transform:rotate(-90deg)}
+.ring .trk{fill:none;stroke:var(--fill-2);stroke-width:7}
+.ring .val{fill:none;stroke:var(--brand);stroke-width:7;stroke-linecap:round;transition:stroke-dasharray .9s var(--lens)}
+.ring-num{font-size:17px;font-weight:680;letter-spacing:-.01em}
+.ring-label{font-size:11.5px;color:var(--ink-2)}
+
+/* 表格 */
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.tbl th{
+  text-align:left;font-weight:560;color:var(--ink-3);font-size:10.5px;
+  letter-spacing:.06em;text-transform:uppercase;padding:0 0 8px;
+  border-bottom:var(--hairline) solid var(--line-2);
+}
+.tbl td{padding:9px 0;border-bottom:var(--hairline) solid var(--fill-2);background:transparent}
+.tbl th:not(:first-child),.tbl td:not(:first-child){padding-left:8px}
+.tbl th:last-child,.tbl td:last-child{padding-right:2px}
+.tbl.compact{font-size:11.5px}
+.tbl.compact th{letter-spacing:.03em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td.num,.tbl th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tbl .name{font-weight:560}
+.tbl.fixed{table-layout:fixed}
+.tbl td.wrap{white-space:normal;word-break:break-word}
+.scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* 表单 */
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.field label{font-size:11.5px;color:var(--ink-2);font-weight:560}
+.input,textarea.input,select.input{
+  width:100%;background:var(--card-2);border:var(--hairline) solid var(--line-2);
+  border-radius:var(--r-el);padding:10px 12px;font-size:13px;color:var(--ink);
+  font-family:inherit;line-height:1.5;resize:vertical;
+  transition:border-color .2s ease, background .2s ease;
+}
+.input:focus,textarea.input:focus{outline:none;border-color:var(--brand-accent);background:#fff}
+textarea.input{min-height:96px}
+textarea.code{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:11.5px;line-height:1.6}
+.hint{font-size:11px;color:var(--ink-3);line-height:1.55}
+
+/* 状态点 */
+.status{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-2)}
+.status i{width:6px;height:6px;border-radius:50%;background:var(--brand);display:inline-block}
+.status.warn i{background:var(--warn)}
+.status.err i{background:var(--danger)}
+.status.idle i{background:var(--ink-3)}
+
+/* 日志 */
+.log{display:flex;gap:8px;padding:7px 0;border-bottom:var(--hairline) solid var(--fill-2);font-size:12px}
+.log:last-child{border-bottom:0}
+.log b{flex:0 0 38px;font-size:10.5px;font-weight:600;letter-spacing:.04em;color:var(--ink-3);padding-top:2px}
+.log.warn b{color:#8A5300}
+.log.error b{color:#C22A22}
+
+/* 校验项 */
+.chk{display:flex;gap:10px;padding:10px 0;border-bottom:var(--hairline) solid var(--fill-2)}
+.chk:last-child{border-bottom:0}
+.chk .ic{width:18px;height:18px;border-radius:50%;flex:0 0 auto;display:grid;place-items:center;margin-top:1px;
+  background:var(--brand-soft);color:var(--brand);font-size:10px;font-weight:700}
+.chk.warn .ic{background:rgba(255,149,0,.16);color:#8A5300}
+.chk.error .ic{background:rgba(255,59,48,.14);color:#C22A22}
+.chk .t{font-size:12.5px;font-weight:560;margin-bottom:2px}
+.chk .m{font-size:11.5px;color:var(--ink-2);line-height:1.55}
+
+/* 图表 */
+.chart{width:100%;display:block;overflow:visible}
+.chart text{font-size:9.5px;fill:rgba(60,60,67,.42);font-variant-numeric:tabular-nums}
+.chart .grid{stroke:rgba(60,60,67,.12);stroke-width:.5}
+.chart .axis{stroke:rgba(60,60,67,.2);stroke-width:.5}
+
+/* Toast */
+.toast{
+  position:fixed;z-index:80;left:50%;bottom:28px;transform:translate(-50%,20px);
+  background:rgba(28,46,38,.92);color:#fff;font-size:12.5px;padding:10px 16px;border-radius:999px;
+  opacity:0;pointer-events:none;transition:opacity .25s ease, transform .35s var(--spring);
+  max-width:86vw;text-align:center;
+}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+
+/* Bottom sheet */
+.sheet-wrap{position:fixed;inset:0;z-index:60;display:none}
+.sheet-wrap.on{display:block}
+.sheet-scrim{position:absolute;inset:0;background:rgba(16,28,22,.34);opacity:0;transition:opacity .26s ease}
+.sheet-wrap.on .sheet-scrim{opacity:1}
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;
+  background:rgba(255,255,255,.92);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);
+  border-radius:var(--r-sheet) var(--r-sheet) 0 0;
+  border:var(--hairline) solid rgba(255,255,255,.7);
+  box-shadow:0 -18px 50px rgba(28,46,38,.24), inset 0 1px 0 rgba(255,255,255,.7);
+  padding:10px 20px calc(22px + env(safe-area-inset-bottom));
+  transform:translateY(100%);
+  transition:transform .46s var(--sheet);
+  max-height:86vh;overflow-y:auto;
+}
+.sheet-wrap.on .sheet{transform:translateY(0)}
+.sheet.dragging{transition:none}
+.grab{width:38px;height:4px;border-radius:2px;background:var(--fill-1);margin:2px auto 14px}
+.sheet h3{font-size:16px;font-weight:650;letter-spacing:-.01em;margin-bottom:4px}
+
+.sysbar{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  margin:-6px 0 14px;padding:10px 14px;border-radius:16px;
+  background:var(--brand-soft);border:var(--hairline) solid rgba(39,107,86,.22);
+  font-size:12.5px;color:var(--brand);
+}
+.sysbar[hidden]{display:none}
+.sysbar.warn{background:rgba(255,149,0,.10);border-color:rgba(255,149,0,.32);color:#8A5300}
+.sysbar.err{background:rgba(255,59,48,.08);border-color:rgba(255,59,48,.28);color:#C22A22}
+.sysbar .txt{flex:1;min-width:180px;line-height:1.5}
+.sysbar .spin{width:12px;height:12px;border-radius:50%;border:1.6px solid currentColor;border-top-color:transparent;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* 徽标 */
+.badge{display:inline-block;min-width:18px;padding:1px 6px;border-radius:999px;background:var(--fill-3);
+  font-size:10px;color:var(--ink-2);text-align:center}
+.kv{display:flex;justify-content:space-between;gap:12px;font-size:12.5px;padding:6px 0;border-bottom:var(--hairline) solid var(--fill-2)}
+.kv:last-child{border-bottom:0}
+.kv span:first-child{color:var(--ink-2)}
+.bar{height:5px;border-radius:3px;background:var(--fill-2);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--brand);border-radius:3px;transition:width .6s var(--lens)}
+.skel{height:12px;border-radius:6px;background:linear-gradient(90deg,var(--fill-3),var(--fill-2),var(--fill-3));
+  background-size:200% 100%;animation:sk 1.4s linear infinite}
+@keyframes sk{to{background-position:-200% 0}}
+
+/* ============================ 响应式 ============================ */
+@media (max-width:819px){
+  .nav-trigger{display:flex}
+  .sidebar{transform:translateX(calc(-100% - 24px));top:12px;left:10px;bottom:12px;width:min(78vw,264px)}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0;padding:66px 14px 48px;max-width:none}
+  body.drawer-open .main{transform:scale(.985);filter:brightness(.96)}
+  body.drawer-open .scrim{opacity:1;pointer-events:auto}
+  .topbar{top:8px;border-radius:20px;padding:8px 12px}
+  h1.page-title{font-size:28px}
+  .grid3{grid-template-columns:1fr 1fr}
+  .hero .price{font-size:32px}
+}
+@media (max-width:520px){
+  .grid2,.grid3{grid-template-columns:1fr}
+  .topbar .seg{order:3}
+  .tbl{font-size:11.5px}
+  .tbl td{padding:7px 0}
+  .card{padding:14px}
+}
+
+/* ============================ 降级策略 ============================ */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .sidebar{background:#F9F9FB}
+  .topbar,.card.glass,.nav-trigger,.sheet{background:#FFFFFF}
+  .scrim{background:rgba(16,28,22,.42)}
+}
+@media (prefers-reduced-transparency:reduce){
+  .sidebar,.topbar,.card.glass,.nav-trigger,.sheet{background:#FFFFFF;-webkit-backdrop-filter:none;backdrop-filter:none}
+  body::before{display:none}
+  .scrim{background:rgba(16,28,22,.5);-webkit-backdrop-filter:none;backdrop-filter:none}
+}
+body.sheet-open .card.glass{background:#FFFFFF;-webkit-backdrop-filter:none;backdrop-filter:none}
+
+@media (prefers-reduced-motion:reduce){
+  *{transition-duration:.001ms !important;animation-duration:.001ms !important}
+  .nav-item:active,.btn:active,.nav-trigger:active{transform:none}
+  .sheet{transition:none;transform:translateY(0)}
+  .sheet-wrap{display:none}
+  .sheet-wrap.on{display:block}
+}
+</style>
+</head>
+<body>
+
+<button id="navTrigger" class="nav-trigger" aria-label="打开导航">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.9">
+    <path d="M4 7h16M4 12h16M4 17h10"/>
+  </svg>
+</button>
+<div id="scrim" class="scrim"></div>
+
+<aside id="sidebar" class="sidebar">
+  <div class="brand">
+    <div class="mark">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 21V9"/><path d="M12 9c0-3 2-5.5 5-6-0.4 3-2.4 5.4-5 6z"/><path d="M12 13c0-2.4-1.7-4.3-4-4.7.3 2.4 1.9 4.2 4 4.7z"/><path d="M6 21h12"/>
+      </svg>
+    </div>
+    <div><b>HarvestCast</b><span>农产品 · 中长期价格预测</span></div>
+  </div>
+  <nav id="nav" class="nav" aria-label="主导航">
+    <div id="lens" class="lens"></div>
+  </nav>
+</aside>
+
+<main class="main">
+  <header class="topbar">
+    <select id="varietySel" class="variety-select" aria-label="选择品种"></select>
+    <div class="seg" id="horizonSeg" role="group" aria-label="预测跨度"></div>
+    <div class="spacer"></div>
+    <div id="runState" class="status idle"><i></i><span>待运行</span></div>
+    <button id="runBtn" class="btn sm">重跑预测</button>
+  </header>
+  <div id="sysbar" class="sysbar" hidden></div>
+  <section id="view"></section>
+
+</main>
+
+<div id="sheetWrap" class="sheet-wrap" aria-hidden="true">
+  <div class="sheet-scrim" data-close="1"></div>
+  <div id="sheet" class="sheet" role="dialog" aria-modal="true" aria-label="运行参数">
+    <div class="grab"></div>
+    <h3 id="sheetTitle">重跑预测</h3>
+    <p class="muted" id="sheetDesc">滚动起点回测 + 全样本重训，通常 10–60 秒。</p>
+    <div id="sheetBody"></div>
+    <div class="row" style="margin-top:14px;gap:8px">
+      <button class="btn ghost" style="flex:1" data-close="1">取消</button>
+      <button class="btn" style="flex:1.4" id="sheetGo">开始运行</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+/* ============================================================
+   HarvestCast 前端（单文件，无框架、无构建）
+   数据全部来自 /api/*；打不开服务时退化为内置离线示例
+   ============================================================ */
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+
+const ICONS = {
+  overview:'<path d="M4 13h6V4H4zM14 20h6v-9h-6zM4 20h6v-4H4zM14 8h6V4h-6z"/>',
+  extraction:'<path d="M4 6h9M4 11h6"/><path d="M14 13l3 3 4-5"/><rect x="3" y="3" width="18" height="18" rx="4"/>',
+  data:'<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"/>',
+  models:'<path d="M4 19V5M4 19h16"/><path d="M7 15l3.5-4 3 2.5L20 7"/>',
+  forecast:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  info:'<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5"/><circle cx="12" cy="8.2" r=".9" fill="currentColor" stroke="none"/>',
+  settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2 2 2 0 1 1-4 0 1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15a2 2 0 1 1 0-4 1.7 1.7 0 0 0 1.3-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 4.6a2 2 0 1 1 4 0 1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 21 11a2 2 0 1 1 0 4z"/>',
+};
+const PAGES = [
+  {id:'overview', label:'项目概览', icon:'overview'},
+  {id:'extraction', label:'LLM 抽取配置', icon:'extraction'},
+  {id:'data', label:'数据管理', icon:'data'},
+  {id:'models', label:'模型与回测', icon:'models'},
+  {id:'forecast', label:'预测结果', icon:'forecast', dotKey:'forecast'},
+  {id:'settings', label:'系统设置', icon:'settings'},
+  {id:'about', label:'关于', icon:'info'},
+];
+
+const S = {
+  page:'overview', variety:null, horizon:6,
+  state:null,                         // /api/state；null 表示连不上服务
+  fc:{}, data:{}, models:{}, extraction:{}, settings:{},
+  load:{status:'idle', msg:''},       // idle | loading | ready | error
+  busy:false, toastTimer:null,
+};
+
+/* ---------------------------- 工具 ---------------------------- */
+const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = (v, d = 0) => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('zh-CN', {minimumFractionDigits:d, maximumFractionDigits:d});
+const pct = (v, d = 1) => (v == null || isNaN(v)) ? '—' : (v > 0 ? '+' : '') + Number(v).toFixed(d) + '%';
+const unitOf = () => (S.fc.variety && S.fc.variety.unit) || '';
+const dirChip = (d) => d === 'bullish' ? '<span class="chip green">利多</span>'
+  : d === 'bearish' ? '<span class="chip red">利空</span>' : '<span class="chip gray">中性</span>';
+const upColor = (v) => (v == null || isNaN(v)) ? 'var(--ink-2)' : (v > 0 ? '#C22A22' : v < 0 ? '#1E7A4F' : 'var(--ink-2)');
+const probColor = (p) => (p == null || isNaN(p)) ? 'var(--ink-2)' : (p >= 50 ? '#C22A22' : '#1E7A4F');
+const lvlChip = (s) => s === 'pass' ? '<span class="chip green">通过</span>'
+  : s === 'warn' ? '<span class="chip orange">告警</span>'
+  : s === 'fail' ? '<span class="chip red">不通过</span>' : '<span class="chip gray">未运行</span>';
+
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(S.toastTimer); S.toastTimer = setTimeout(()=>t.classList.remove('on'), 2400);
+}
+async function api(path, opt){
+  // 只读请求失败重试一次；POST 不自动重试（避免重复建任务）
+  const method = (opt && opt.method) || 'GET';
+  const tries = method === 'GET' ? 2 : 1;
+  let last = null;
+  for(let i = 0; i < tries; i++){
+    try{
+      const r = await fetch(path, Object.assign({headers:{'Content-Type':'application/json'}}, opt||{}));
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      return await r.json();
+    }catch(e){
+      last = e;
+      if(i + 1 < tries) await new Promise(res => setTimeout(res, 400));
+    }
+  }
+  console.warn('[api] failed', path, last && last.message);
+  return null;
+}
+
+/* 顶部状态条：取数进度 / 失败原因 / 重试入口 */
+function showSysbar(text, kind = '', withRetry = false){
+  const el = $('#sysbar');
+  if(!el) return;
+  if(!text){ el.hidden = true; el.innerHTML = ''; return; }
+  el.hidden = false;
+  el.className = 'sysbar' + (kind ? ' ' + kind : '');
+  el.innerHTML = `${kind === '' ? '<i class="spin"></i>' : ''}<span class="txt">${esc(text)}</span>`
+    + (withRetry ? '<button class="btn sm" id="sysbarRetry">重试</button>' : '')
+    + '<button class="btn ghost sm" id="sysbarClose">隐藏</button>';
+  const r = $('#sysbarRetry');
+  if(r) r.addEventListener('click', () => { startInit(); });
+  const c = $('#sysbarClose');
+  if(c) c.addEventListener('click', () => showSysbar(''));
+}
+function skeleton(n = 3){
+  return Array.from({length:n}, () => '<div class="card"><div class="skel" style="width:40%;margin-bottom:10px"></div><div class="skel" style="width:100%;height:56px"></div></div>').join('');
+}
+
+/* ---------------------------- 图表（SVG） ---------------------------- */
+function lineChart(hist, h, unit){
+  const W = 680, H = 250, L = 44, R = 86, T = 14, B = 32;
+  const vals = hist.map(p => p.close).concat([h.lo, h.hi, h.price]);
+  let min = Math.min(...vals), max = Math.max(...vals);
+  const pad = (max - min) * 0.12 || max * 0.05; min -= pad; max += pad;
+  const n = hist.length;
+  const x = i => L + (W - L - R) * (i / Math.max(1, n));
+  const y = v => T + (H - T - B) * (1 - (v - min) / Math.max(1e-9, max - min));
+  const pts = hist.map((p, i) => `${x(i).toFixed(1)},${y(p.close).toFixed(1)}`).join(' ');
+  const farPts = hist.map((p, i) => `${x(i).toFixed(1)},${y(p.far_close).toFixed(1)}`).join(' ');
+  const fx = x(n - 0.4), fw = (W - 14 - fx);
+  const bandY1 = y(h.hi), bandY2 = y(h.lo);
+  let grid = '', labels = '';
+  for(let g = 0; g < 4; g++){
+    const v = min + (max - min) * g / 3, gy = y(v);
+    grid += `<line class="grid" x1="${L}" y1="${gy.toFixed(1)}" x2="${W - R}" y2="${gy.toFixed(1)}"/>`;
+    labels += `<text x="${L - 6}" y="${(gy + 3).toFixed(1)}" text-anchor="end">${fmt(v)}</text>`;
+  }
+  for(let i = 0; i < n; i += Math.max(1, Math.round(n / 6))){
+    labels += `<text x="${x(i).toFixed(1)}" y="${H - 8}" text-anchor="middle">${esc(hist[i].month.slice(2))}</text>`;
+  }
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="历史价格与预测区间">
+    ${grid}${labels}
+    <rect x="${fx.toFixed(1)}" y="${bandY1.toFixed(1)}" width="${fw.toFixed(1)}" height="${Math.max(1,(bandY2-bandY1)).toFixed(1)}"
+      fill="rgba(39,107,86,.13)" rx="6"/>
+    <polyline points="${farPts}" fill="none" stroke="rgba(60,60,67,.28)" stroke-width="1.2" stroke-dasharray="3 3"/>
+    <polyline points="${pts}" fill="none" stroke="#276B56" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>
+    <line x1="${fx.toFixed(1)}" y1="${y(h.price).toFixed(1)}" x2="${(W - R).toFixed(1)}" y2="${y(h.price).toFixed(1)}"
+      stroke="#276B56" stroke-width="1.4" stroke-dasharray="2 3"/>
+    <circle cx="${fx.toFixed(1)}" cy="${y(h.price).toFixed(1)}" r="4.5" fill="#276B56" stroke="#fff" stroke-width="1.6"/>
+    <text x="${(W - 16).toFixed(1)}" y="${(y(h.price) - 9).toFixed(1)}" fill="#276B56" text-anchor="end" style="font-weight:600">${fmt(h.price)}</text>
+    <line class="axis" x1="${L}" y1="${H - B}" x2="${W - R}" y2="${H - B}"/>
+  </svg>`;
+}
+
+function vbar(items, opt = {}){
+  // 柱状图必须能正确表达负数：以 0 为基线，正值向上、负值向下，
+  // 旧实现用 min 作起点，负值会被画到基线以上，还会溢出卡片。
+  const W = 680, H = opt.height || 190, B = 30, T = 22;
+  const vals = items.map(d => d.value);
+  const rawMin = Math.min(...vals, 0), rawMax = Math.max(...vals, 0);
+  const span0 = rawMax - rawMin || 1;
+  const lo = rawMin - (rawMin < 0 ? span0 * 0.12 : 0);
+  const hi = rawMax + span0 * 0.12;
+  const plotT = T, plotB = H - B;
+  const y = v => plotT + (plotB - plotT) * (1 - (v - lo) / (hi - lo));
+  const zeroY = y(0);
+  const bw = (W - 24) / items.length;
+
+  let out = `<line class="grid" x1="8" y1="${zeroY.toFixed(1)}" x2="${W - 8}" y2="${zeroY.toFixed(1)}"/>`
+          + `<text x="2" y="${(zeroY + 3).toFixed(1)}" text-anchor="start" style="font-size:8.5px">0</text>`;
+
+  items.forEach((d, i) => {
+    const x = 12 + i * bw + bw * 0.18;
+    const w = bw * 0.64;
+    const vy = y(d.value);
+    const up = d.value >= 0;
+    const h = Math.max(1, Math.abs(vy - zeroY));
+    const top = up ? vy : zeroY;
+    out += `<rect x="${x.toFixed(1)}" y="${top.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}"
+      rx="4" fill="${d.color || 'rgba(39,107,86,.72)'}"/>`;
+    out += `<text x="${(x + w / 2).toFixed(1)}" y="${H - 9}" text-anchor="middle">${esc(d.label)}</text>`;
+    if (opt.showValue && d.text){
+      const ly = up ? Math.max(plotT + 9, vy - 5) : Math.min(plotB + 12, zeroY + h + 11);
+      out += `<text x="${(x + w / 2).toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle">${esc(d.text)}</text>`;
+    }
+  });
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img">${out}</svg>`;
+}
+
+function hbar(items){
+  const W = 680, rowH = 26, H = items.length * rowH + 10;
+  const maxV = Math.max(...items.map(d => Math.abs(d.value)), 0.001);
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img">${items.map((d, i) => {
+    const y = i * rowH + 4, w = (W - 210) * Math.abs(d.value) / maxV;
+    return `<text x="0" y="${y + 13}" style="font-size:10.5px">${esc(d.label)}</text>
+      <rect x="120" y="${y + 4}" width="${W - 210}" height="9" rx="4.5" fill="var(--fill-4)"/>
+      <rect x="120" y="${y + 4}" width="${Math.max(2,w).toFixed(1)}" height="9" rx="4.5" fill="rgba(39,107,86,.7)"/>
+      <text x="${W - 82}" y="${y + 13}" style="font-size:10px">${esc(d.text || '')}</text>`;
+  }).join('')}</svg>`;
+}
+
+function residualChart(series){
+  if(!series || !series.length) return '<p class="muted">无回测残差可展示</p>';
+  const W = 680, H = 150, T = 12, B = 18;
+  const max = Math.max(...series.map(Math.abs), 0.001);
+  const bw = (W - 20) / series.length;
+  // 全为正/负时 0 线贴边，避免半张图留白
+  const allPos = series.every(v => v >= 0), allNeg = series.every(v => v <= 0);
+  const zero = allPos ? (H - B) : allNeg ? T : T + (H - T - B) / 2;
+  const zeroScale = (H - T - B) / (allPos || allNeg ? 1 : 2);
+  let out = `<line class="grid" x1="10" y1="${zero.toFixed(1)}" x2="${W - 10}" y2="${zero.toFixed(1)}"/>`
+          + `<text x="10" y="${(zero - 3).toFixed(1)}" style="font-size:8.5px">0</text>`;
+  series.forEach((v, i) => {
+    const h = Math.min(zeroScale, zeroScale * Math.abs(v) / max);
+    const y = v >= 0 ? zero - h : zero;
+    out += `<rect x="${(10 + i * bw + bw * 0.2).toFixed(1)}" y="${y.toFixed(1)}" width="${(bw * 0.6).toFixed(1)}" height="${Math.max(1,h).toFixed(1)}" rx="2"
+      fill="${v >= 0 ? 'rgba(39,107,86,.6)' : 'rgba(255,59,48,.45)'}"/>`;
+  });
+  out += `<text x="10" y="${H - 4}" style="font-size:9px">预测值 − 实际值（越接近 0 越好）</text>`;
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img">${out}</svg>`;
+}
+
+function ring(value, total, size = 62){
+  const r = (size - 10) / 2, c = 2 * Math.PI * r;
+  const ratio = total ? Math.min(1, value / total) : 0;
+  return `<svg class="ring" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+    <circle class="trk" cx="${size/2}" cy="${size/2}" r="${r}"/>
+    <circle class="val" cx="${size/2}" cy="${size/2}" r="${r}"
+      stroke-dasharray="${(c * ratio).toFixed(1)} ${c.toFixed(1)}"/></svg>`;
+}
+
+/* ---------------------------- 导航 ---------------------------- */
+function buildNav(){
+  const nav = $('#nav');
+  PAGES.forEach(p => {
+    const b = document.createElement('button');
+    b.className = 'nav-item'; b.dataset.page = p.id;
+    b.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">${ICONS[p.icon]}</svg>
+      <span>${p.label}</span><i class="dot"></i>`;
+    b.addEventListener('click', () => { go(p.id); closeDrawer(); });
+    nav.appendChild(b);
+  });
+  moveLens();
+}
+function moveLens(){
+  const active = $('.nav-item.active');
+  const lens = $('#lens');
+  if(!active){ lens.style.opacity = 0; return; }
+  lens.style.opacity = 1;
+  lens.style.top = (active.offsetTop + 4) + 'px';
+  lens.style.height = (active.offsetHeight - 8) + 'px';
+}
+function setDot(page, on){
+  const b = $(`.nav-item[data-page="${page}"]`);
+  if(b) b.classList.toggle('has-dot', !!on);
+}
+function openDrawer(){ $('#sidebar').classList.add('open'); document.body.classList.add('drawer-open'); }
+function closeDrawer(){ $('#sidebar').classList.remove('open'); document.body.classList.remove('drawer-open'); }
+
+let navToken = 0;
+
+async function go(page){
+  S.page = ['overview','extraction','data','models','forecast','settings','about'].includes(page) ? page : 'overview';
+  $$('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.page === S.page));
+  moveLens();
+  history.replaceState(null, '', '#' + S.page);
+  if(!S.state){ render(); return; }
+
+  const token = ++navToken;
+  await ensurePageData();
+  if(token !== navToken) return;   // 期间又切了页，丢弃本次结果
+  render();
+}
+
+/* 失败态卡片：所有取数区域失败时都用它，必须带可点的重试 */
+function failureCard(title, message, retryExpr){
+  return `<div class="card">
+    <div class="row" style="gap:8px;margin-bottom:6px"><span class="chip red">加载失败</span></div>
+    <div style="font-size:14px;font-weight:600;margin-bottom:4px">${esc(title)}</div>
+    <p class="muted">${esc(message || '数据接口没有返回内容。')}</p>
+    <div class="row" style="gap:8px;margin-top:12px">
+      <button class="btn sm" onclick="${retryExpr || 'reloadPage()'}">重试</button>
+      <button class="btn ghost sm" onclick="location.reload()">重新加载页面</button>
+    </div>
+  </div>`;
+}
+
+function emptyCard(title, message, actionLabel, actionExpr){
+  return `<div class="card">
+    <div style="font-size:13.5px;font-weight:600;margin-bottom:4px">${esc(title)}</div>
+    <p class="muted">${esc(message)}</p>
+    ${actionLabel ? `<button class="btn ghost sm" style="margin-top:10px" onclick="${actionExpr}">${esc(actionLabel)}</button>` : ''}
+  </div>`;
+}
+
+window.reloadPage = () => { loadAll(); };
+
+/* ---------------------------- 数据加载 ---------------------------- */
+async function ensurePageData(){
+  const v = S.variety;
+  const need = {
+    overview:   [['fc','/api/forecast?variety=' + v]],
+    forecast:   [['fc','/api/forecast?variety=' + v]],
+    data:       [['data','/api/data?variety=' + v], ['fc','/api/forecast?variety=' + v]],
+    models:     [['models','/api/models?variety=' + v], ['fc','/api/forecast?variety=' + v]],
+    extraction: [['extraction','/api/extraction?variety=' + v]],
+    settings:   [['settings','/api/settings']],
+    about:      [['settings','/api/settings']],
+  }[S.page] || [];
+
+  S.load = {status:'loading', msg:''};
+  if(need.length) render();           // 立刻给骨架，绝不留旧页面
+
+  let failed = 0;
+  for(const [k, url] of need){
+    const d = await api(url);
+    if(d === null){ failed += 1; continue; }
+    S[k] = d;
+  }
+  S.load = (need.length && failed === need.length)
+    ? {status:'error', msg:'接口全部没有响应，可能是服务未启动或中途退出。'}
+    : {status:'ready', msg:''};
+}
+
+async function boot(){
+  buildNav();
+  const st = await api('/api/state');
+  if(!st){
+    S.state = null;
+    S.load = {status:'error', msg:'无法连接本地服务（默认 http://127.0.0.1:8848）。'};
+    const sel0 = $('#varietySel');
+    if(sel0) sel0.innerHTML = '<option>未连接</option>';
+    render();
+    return;
+  }
+  S.state = st;
+  const vsAll = st.varieties || [];
+  if(!S.variety) S.variety = (vsAll.find(v => v.has_market) || vsAll[0] || {}).id || null;
+  // 没有任何行情时自动取数；部分缺失只提示，不反复触发下载
+  if(!(st.data && st.data.ready)) await autoInit();
+  else if((st.data.missing || []).length){
+    showSysbar(`还有 ${st.data.missing.length} 个品种没有行情数据，可在概览页「获取初始数据」补齐。`, 'warn');
+  }
+  const sel = $('#varietySel');
+  const vs0 = S.state.varieties || [];
+  const cats = [...new Set(vs0.map(v => v.category || '其他'))];
+  sel.innerHTML = cats.map(c => `<optgroup label="${esc(c)}">` + vs0.filter(v => (v.category || '其他') === c)
+      .map(v => `<option value="${v.id}">${esc(v.name)} ${esc(v.ticker)}${v.has_market ? '' : ' · 无数据'}</option>`)
+      .join('') + '</optgroup>').join('');
+  sel.value = S.variety;
+  sel.addEventListener('change', () => {
+    S.variety = sel.value; loadAll();
+  });
+  buildHorizonSeg();
+  $('#navTrigger').addEventListener('click', openDrawer);
+  $('#scrim').addEventListener('click', closeDrawer);
+  $('#runBtn').addEventListener('click', openRunSheet);
+  window.addEventListener('resize', moveLens);
+  window.addEventListener('hashchange', () => go(location.hash.slice(1)));
+  const init = location.hash.slice(1);
+  go(init || 'overview');
+  await loadAll();
+  // 调试/深链钩子：?autonav=settings 在首屏加载完成后模拟一次点击切换，
+  // 用于验证「导航点击 → 取数 → 渲染」这条路径（避免只测 URL 直开）。
+  const autonav = new URLSearchParams(location.search).get('autonav');
+  if(autonav) setTimeout(() => go(autonav), 120);
+}
+
+async function loadAll(){
+  try{
+    await ensurePageData();
+  }catch(e){
+    console.warn('[loadAll]', e);
+  }
+  buildHorizonSeg();
+  renderTop();
+  render();
+}
+
+function buildHorizonSeg(){
+  const seg = $('#horizonSeg');
+  const hs = (S.fc && S.fc.horizons) ? Object.keys(S.fc.horizons) : ['6','9','12'];
+  seg.innerHTML = hs.map(h => `<button data-h="${h}" class="${Number(h)===S.horizon?'on':''}">${h} 个月</button>`).join('');
+  $$('#horizonSeg button').forEach(b => b.addEventListener('click', () => {
+    S.horizon = Number(b.dataset.h);
+    $$('#horizonSeg button').forEach(x => x.classList.toggle('on', Number(x.dataset.h) === S.horizon));
+    if(S.page !== 'forecast') go('forecast'); else render();
+  }));
+}
+
+function renderTop(){
+  const f = S.fc || {};
+  const v = f.variety || {};
+  const val = (f.validation || {}).status;
+  const el = $('#runState');
+  const degraded = (f.headline && f.headline.metrics && f.headline.metrics.ensemble &&
+                    f.headline.metrics.ensemble.mase >= 1);
+  el.className = 'status ' + (val === 'fail' ? 'err' : (val === 'warn' || degraded) ? 'warn' : 'idle');
+  el.innerHTML = `<i></i><span>${val ? lvlChip(val) : '待运行'} · ${v.name || ''}</span>`;
+}
+
+/* ---------------------------- 页面：概览 ---------------------------- */
+function pageOverview(){
+  const f = S.fc || {};
+  const vs = (S.state && S.state.varieties) || [];
+  const done = vs.filter(v => v.has_forecast).length;
+  const running = Object.values((S.state && S.state.tasks) || {}).filter(t => t.state === 'running').length;
+  const pending = Math.max(0, vs.length - done);
+  const h = f.headline || {};
+  const run = (f.validation && f.validation.status) || '未运行';
+
+  const miss = (S.state.data && S.state.data.missing) || [];
+  const banner = miss.length ? `
+    <div class="card" style="border-color:rgba(255,149,0,.4);background:rgba(255,149,0,.06)">
+      <div class="between" style="align-items:flex-start;gap:12px">
+        <div>
+          <div style="font-size:13.5px;font-weight:600;margin-bottom:3px">还有 ${miss.length} 个品种没有初始数据</div>
+          <p class="tiny">系统不会用合成数据顶替真实行情。先拉取初始行情，再跑预测：${miss.slice(0, 8).map(m => esc(m.name)).join('、')}${miss.length > 8 ? ' 等' : ''}</p>
+        </div>
+        <button class="btn sm" id="initBtn">获取初始数据</button>
+      </div>
+      <p class="tiny" style="margin-top:8px">等价命令：<span class="mono">python -m src.cli init</span>（新浪通道，无需安装依赖）</p>
+    </div>` : '';
+
+  const pf = (S.state.data && S.state.data.fundamentals_ready) || 0;
+  const fBanner = (pf < done) ? `
+    <div class="card" style="background:var(--brand-soft);border-color:rgba(39,107,86,.22)">
+      <div class="between" style="align-items:flex-start;gap:12px">
+        <div>
+          <div style="font-size:13.5px;font-weight:600;margin-bottom:3px">${done - pf} 个品种还没有基本面因子</div>
+          <p class="tiny">当前为纯价格模型（季节 + SARIMAX + GBM），没有供需因子，因此不输出丰产/减产情景。到「LLM 抽取配置」导出一份提示词补上即可。</p>
+        </div>
+        <button class="btn ghost sm" onclick="go('extraction')">去抽取</button>
+      </div>
+    </div>` : '';
+
+  const hero = h.price ? `
+    <div class="card glass hero">
+      <div class="between" style="align-items:flex-start">
+        <div>
+          <div class="row" style="gap:8px;margin-bottom:6px">
+            <span class="chip">${esc(f.variety.name)} ${esc(f.variety.ticker)}</span>
+            <span class="chip gray">${esc(f.as_of_month)} 截止</span>
+            ${lvlChip(f.validation.status)}
+          </div>
+          <div class="price">${fmt(h.price)}<span class="unit">${esc(unitOf())}</span></div>
+          <div class="band">80% 区间 ${fmt(h.lo)} – ${fmt(h.hi)}</div>
+          <div class="tiny" style="margin-top:2px">目标期 <span style="white-space:nowrap">${(h.target_months||[]).join(' / ') || '—'}</span></div>
+        </div>
+        <div style="text-align:right">
+          <div class="tiny">上涨概率</div>
+          <div style="font-size:24px;font-weight:700;letter-spacing:-.02em;color:${probColor(h.prob_up)}">${fmt(h.prob_up,1)}%</div>
+          <div class="tiny" style="color:${upColor(h.expected_change_pct)}">${pct(h.expected_change_pct)} vs 当前 ${fmt(h.base_price)}</div>
+        </div>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn ghost sm" onclick="go('forecast')">查看完整结论</button>
+        <button class="btn ghost sm" onclick="go('models')">回测与诊断</button>
+        <span class="tiny" style="align-self:center">三模型集成 · 权重 ${Object.entries(h.weights||{}).map(([k,v])=>k.replace('_baseline','')+' '+Math.round(v*100)+'%').join(' · ')} · 运行于 ${esc((f.generated_at||'—').replace('T',' '))}</span>
+      </div>
+    </div>` : emptyCard('还没有预测结果', '选择品种后运行一次预测，即可得到区间与概率。', '运行预测', 'openRunSheet()');
+
+  const rings = `
+    <div class="grid3" style="margin-bottom:12px">
+      ${[['进行中', running, Math.max(1, running + 1), '运行中任务'],
+         ['待运行', pending, Math.max(1, vs.length), '未生成结果'],
+         ['已完成', done, Math.max(1, vs.length), '已有预测']].map(([label, val, total, note]) => `
+        <div class="card tight">
+          <div class="ring-wrap">
+            ${ring(val, total)}
+            <div><div class="ring-num">${val}<span class="tiny" style="font-weight:500"> / ${total}</span></div>
+              <div class="ring-label">${label}</div></div>
+          </div>
+          <p class="tiny" style="margin-top:8px">${note}</p>
+        </div>`).join('')}
+    </div>`;
+
+  const rows = vs.map(v => {
+    const hh = v.headline || {};
+    return `<tr>
+      <td class="name">${esc(v.name)} <span class="tiny">${esc(v.ticker)}</span>
+        ${v.has_market ? '' : '<div class="tiny" style="color:#8A5300">无数据</div>'}</td>
+      <td class="num">${v.has_market ? fmt(hh.price) : '—'}</td>
+      <td class="num">${fmt(hh.lo)} – ${fmt(hh.hi)}</td>
+      <td class="num" style="color:${probColor(hh.prob_up)}">${hh.prob_up==null?'—':fmt(hh.prob_up,1)+'%'}</td>
+      <td class="num">${lvlChip(v.validation)}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <h1 class="page-title">项目概览</h1>
+    <p class="page-sub">从播种时点出发，预测 6–12 个月后收获季的价格区间与涨跌概率。LLM 只做信息抽取，价格由数学模型给出。</p>
+    ${banner}
+    ${fBanner}
+    ${hero}
+    <h2 class="sec">任务状态</h2>
+    ${rings}
+    <h2 class="sec">品种列表</h2>
+    <div class="card">
+      <div class="scroll-x"><table class="tbl">
+        <thead><tr><th>品种</th><th class="num">预测价</th><th class="num">区间</th><th class="num">涨概率</th><th class="num">校验</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="5" class="muted">暂无品种状态</td></tr>'}</tbody>
+      </table></div>
+      <p class="tiny" style="margin-top:10px">共 ${vs.length} 个品种，已有行情 ${(S.state.data && S.state.data.ready) || 0} 个。无数据品种请先「获取初始数据」。</p>
+    </div>
+    `;
+}
+
+/* ---------------------------- 页面：LLM 抽取 ---------------------------- */
+function pageExtraction(){
+  const e = S.extraction || {};
+  const mode = e.mode || 'manual';
+  const schema = e.schema || {fields:[], field_count:0};
+  const fields = (schema.fields || []).slice(0, 26);
+  return `
+    <h1 class="page-title">LLM 抽取配置</h1>
+    <p class="page-sub">同一份提示词、同一个 JSON Schema、同一套校验规则。API 自动模式与手动粘贴模式的产出结构 100% 一致。</p>
+
+    <div class="card">
+      <div class="between" style="margin-bottom:12px">
+        <div class="seg" id="modeSeg">
+          <button data-mode="api" class="${mode==='api'?'on':''}">API 自动模式</button>
+          <button data-mode="manual" class="${mode==='manual'?'on':''}">手动粘贴模式</button>
+        </div>
+        <span class="chip gray">schema ${esc(e.schema_version||'1.0.0')}</span>
+      </div>
+      <div id="modeBody"></div>
+    </div>
+
+    <h2 class="sec">Schema 预览 <span class="badge">${schema.field_count} 字段</span></h2>
+    <div class="card">
+      <div class="scroll-x"><table class="tbl" style="table-layout:fixed">
+        <colgroup><col style="width:30%"><col style="width:13%"><col style="width:9%"><col style="width:48%"></colgroup>
+        <thead><tr><th>路径</th><th>类型</th><th style="text-align:center">必填</th><th>约束</th></tr></thead>
+        <tbody>${fields.map(f => `<tr>
+          <td class="mono" style="font-size:11px">${esc(f.path)}</td>
+          <td class="tiny">${esc(f.type)}</td>
+          <td style="text-align:center">${f.required?'<span style="color:#276B56">✓</span>':'<span class="tiny">—</span>'}</td>
+          <td class="tiny">${f.enum ? 'enum(' + f.enum.length + ')' : ''} ${esc(f.desc||'')}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+      <p class="tiny" style="margin-top:10px">字段数 ${schema.field_count} · 版本 ${esc(e.schema_version || '')}</p>
+    </div>
+
+    <h2 class="sec">抽取结果质量</h2>
+    <div class="card" id="qualityCard"><p class="muted">粘贴 JSON 并校验后在此显示入库统计。</p></div>`;
+}
+
+function renderModeBody(mode){
+  const e = S.extraction || {};
+  const llm = e.llm || {};
+  const body = $('#modeBody');
+  if(!body) return;
+  if(mode === 'manual'){
+    body.innerHTML = `
+      <div class="field">
+        <label>信息截止日</label>
+        <div class="row"><input class="input" id="asOf" type="date" style="flex:1" value="${new Date().toISOString().slice(0,10)}">
+        <button class="btn ghost sm" id="regenPrompt">重新渲染</button></div>
+        <p class="hint">截止日之前的公开信息才会进入特征，防止未来函数。</p>
+      </div>
+      <div class="field">
+        <label>提示词（复制到任意联网模型）</label>
+        <textarea class="input code" id="promptBox" style="min-height:180px" readonly>${esc(e.prompt || '')}</textarea>
+        <div class="row"><button class="btn ghost sm" id="copyPrompt">复制提示词</button>
+        <button class="btn ghost sm" id="downloadPrompt">导出 .md</button>
+        <span class="tiny">模板 SHA256 ${esc((e.prompt_hash||'').slice(0,16))}…</span></div>
+      </div>
+      <div class="field">
+        <label>模型返回的 JSON</label>
+        <textarea class="input code" id="jsonBox" style="min-height:150px" placeholder='{ "schema_version": "1.0.0", ... }'></textarea>
+        <div class="row"><button class="btn sm" id="importBtn">校验并入库</button>
+        <button class="btn ghost sm" id="loadExample">填入合规示例</button>
+        <span class="tiny">校验分三层：结构 → 约束 → 业务（日期越界、含价格预测、来源缺失直接拒收）</span></div>
+      </div>`;
+    $('#copyPrompt').addEventListener('click', async () => {
+      try{ await navigator.clipboard.writeText($('#promptBox').value); toast('提示词已复制'); }
+      catch(e){ $('#promptBox').select(); toast('已全选，按 Ctrl/Cmd+C 复制'); }
+    });
+    $('#regenPrompt').addEventListener('click', async () => {
+      const as_of = $('#asOf').value;
+      const r = await api('/api/extraction/prompt', {method:'POST', body: JSON.stringify({variety:S.variety, as_of})});
+      if(!r){ toast('需要本地服务才能重新渲染'); return; }
+      $('#promptBox').value = r.prompt; toast('提示词已按 ' + as_of + ' 重新渲染');
+    });
+    $('#downloadPrompt').addEventListener('click', () => {
+      const blob = new Blob([$('#promptBox').value], {type:'text/markdown'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = `prompt_${S.variety}.md`; a.click(); URL.revokeObjectURL(a.href);
+    });
+    $('#loadExample').addEventListener('click', () => {
+      const today = new Date().toISOString().slice(0,10);
+      $('#jsonBox').value = JSON.stringify({
+        schema_version:'1.0.0', variety_id:S.variety, as_of_date:today,
+        research_window: today + '/' + today,
+        factors:[], events:[], data_gaps:['示例：仅演示结构，不含真实数值'],
+        refusal:false, refusal_reason:null,
+        meta:{model:'manual-example', generated_at:new Date().toISOString().slice(0,19), search_queries:[], mode:'manual'}
+      }, null, 2);
+      toast('已填入结构示例（factors 为空，可自行补条目）');
+    });
+    $('#importBtn').addEventListener('click', async () => {
+      const text = $('#jsonBox').value.trim();
+      if(!text){ toast('请先粘贴 JSON'); return; }
+      const r = await api('/api/extraction/import', {method:'POST', body: JSON.stringify({variety:S.variety, text})});
+      if(!r){ toast('需要本地服务才能入库'); return; }
+      renderQuality(r);
+    });
+  }else{
+    body.innerHTML = `
+      <div class="kv"><span>端点</span><span class="mono" style="font-size:11.5px">${esc(llm.base_url||'—')}</span></div>
+      <div class="kv"><span>模型</span><span class="mono" style="font-size:11.5px">${esc(llm.model||'—')}</span></div>
+      <div class="kv"><span>接口形态</span><span>${esc(llm.api_style||'chat')} ${llm.enable_web_search?'· 启用检索工具':''}</span></div>
+      <div class="kv"><span>置信度门槛</span><span>≥ ${esc(llm.min_confidence ?? 0.55)}，无来源 ${llm.require_source?'拒收':'放行'}</span></div>
+      <p class="hint" style="margin:10px 0 12px">纯 chat/completions 接口本身不联网。所谓「自动模式」= 模型自带检索能力，或使用 responses + web_search 工具。若模型不支持检索，请切到手动模式——两条路径的 schema 与校验完全相同。</p>
+      <button class="btn" id="apiRun">调用 API 抽取</button>
+      <div id="apiOut" style="margin-top:12px"></div>`;
+    $('#apiRun').addEventListener('click', async () => {
+      const out = $('#apiOut');
+      out.innerHTML = '<p class="muted">请求中…（可能需要 30–120 秒）</p>';
+      const r = await api('/api/extraction/api', {method:'POST', body: JSON.stringify({variety:S.variety})});
+      if(!r){ out.innerHTML = '<p class="muted">需要本地服务；或检查网络与 API 配置。</p>'; return; }
+      out.innerHTML = `<pre class="input code" style="max-height:220px;overflow:auto">${esc(JSON.stringify(r, null, 2))}</pre>`;
+      if(r.ingest) renderQuality(r.ingest);
+    });
+  }
+}
+
+function renderQuality(r){
+  const card = $('#qualityCard');
+  if(!card) return;
+  const q = (r.quality) || {};
+  const status = r.status || 'unknown';
+  const color = status === 'ok' ? 'green' : status === 'empty' ? 'orange' : 'red';
+  card.innerHTML = `
+    <div class="between" style="margin-bottom:8px">
+      <span class="chip ${color}">${status === 'ok' ? '已入库' : status === 'empty' ? '无有效记录' : '被拒收'}</span>
+      <span class="tiny">模式 ${esc(q.mode||'—')} · 模型 ${esc(q.model||'—')}</span>
+    </div>
+    ${(r.errors && r.errors.length) ? `<div class="log error" style="border:0"><b>ERR</b><span>${r.errors.slice(0,6).map(esc).join('<br>')}</span></div>` : ''}
+    <div class="kv"><span>进入校验的记录</span><span>${fmt(q.records_in)}</span></div>
+    <div class="kv"><span>进入训练集</span><span>${fmt(q.records_kept)}</span></div>
+    <div class="kv"><span>剔除（低置信/无来源/无值）</span><span>${fmt(q.records_dropped)}</span></div>
+    <div class="kv"><span>平均置信度</span><span>${q.mean_confidence ?? '—'}</span></div>
+    <div class="kv"><span>来源覆盖率</span><span>${q.source_ratio == null ? '—' : Math.round(q.source_ratio*100)+'%'}</span></div>
+    ${(q.gaps && q.gaps.length) ? `<p class="hint" style="margin-top:10px">数据缺口：${q.gaps.map(esc).join('；')}</p>` : ''}
+    ${(q.dropped_detail && q.dropped_detail.length) ? `<div style="margin-top:10px"><h3 class="mini">剔除明细</h3>${q.dropped_detail.slice(0,5).map(d=>`<div class="log warn"><b>DROP</b><span>${esc(d.factor)} ${esc(d.period)} — ${esc(d.reason)}</span></div>`).join('')}</div>` : ''}
+    ${r.store ? `<p class="tiny" style="margin-top:10px">已写入 ${esc(r.store.path || '')}，累计 ${r.store.total} 条。</p>` : ''}`;
+}
+
+/* ---------------------------- 页面：数据 ---------------------------- */
+function pageData(){
+  const d = S.data || {};
+  const f = S.fc || {};
+  const hist = (d.history || []).slice(-30).reverse();
+  const facs = d.factors || [];
+  const cov = (f.data_summary && f.data_summary.coverage) || {};
+  const logs = (d.logs || []).slice(-14).reverse();
+  return `
+    <h1 class="page-title">数据管理</h1>
+    <p class="page-sub">行情 + 基本面 + 宏观，全部落到本地文件；无数据库、可增量、可复盘。</p>
+
+    <div class="grid3">
+      <div class="card tight"><div class="tiny">行情月数</div><div class="ring-num">${fmt(d.market_rows || (f.data_summary||{}).n_months)}</div></div>
+      <div class="card tight"><div class="tiny">因子记录</div><div class="ring-num">${fmt(d.factor_rows)}</div></div>
+      <div class="card tight"><div class="tiny">最近月份</div><div class="ring-num" style="font-size:15px">${esc(d.as_of_month || (f.data_summary||{}).end || '—')}</div></div>
+    </div>
+
+    <h2 class="sec">因子覆盖率</h2>
+    <div class="card">
+      ${Object.entries(cov).length ? Object.entries(cov).map(([k,v]) => `
+        <div style="margin-bottom:10px">
+          <div class="between" style="margin-bottom:4px"><span class="mono" style="font-size:11.5px">${esc(k)}</span><span class="tiny">${Math.round(v*100)}%</span></div>
+          <div class="bar"><i style="width:${Math.max(2, Math.round(v*100))}%"></i></div>
+        </div>`).join('') : `<p class="muted">${facs.length
+          ? '因子尚未进入样本期，暂无可计算覆盖率的月份。'
+          : '还没有基本面因子，覆盖率要等因子入库后才能计算。'}</p>`}
+      <p class="tiny" style="margin-top:6px">覆盖率 = 该因子在样本期内「已发布可见」的月份占比。低于 60% 会在校验层告警。</p>
+    </div>
+
+    <h2 class="sec">基本面因子（最新）</h2>
+    <div class="card">
+      <div class="scroll-x"><table class="tbl">
+        <thead><tr><th>因子</th><th class="num">数值</th><th class="num">方向</th><th class="num">置信度</th><th>期次 · 发布</th></tr></thead>
+        <tbody>${facs.length ? facs.map(v => `<tr>
+          <td class="name mono" style="font-size:11.5px">${esc(v.factor_id)}<div class="tiny">${esc((v.source_title||'').slice(0,22))}</div></td>
+          <td class="num">${fmt(v.value, v.value != null && Math.abs(v.value) < 10 ? 2 : 0)}<div class="tiny">${esc(v.unit||'')}</div></td>
+          <td class="num">${dirChip(v.direction)}</td>
+          <td class="num">${Math.round((v.confidence||0)*100)}%</td>
+          <td class="tiny">${esc(v.period)}<br>${esc(v.as_of)}</td>
+        </tr>`).join('') : `<tr><td colspan="5" class="muted">还没有基本面因子记录。
+          <button class="btn ghost sm" style="margin-left:8px" onclick="go('extraction')">去抽取</button></td></tr>`}</tbody>
+      </table></div>
+    </div>
+
+    <h2 class="sec">行情快照</h2>
+    <div class="card">
+      <div class="scroll-x"><table class="tbl">
+        <thead><tr><th>月份</th><th class="num">收盘</th><th class="num">远月</th><th class="num">基差</th></tr></thead>
+        <tbody>${hist.map(r => `<tr>
+          <td class="mono" style="font-size:11.5px">${esc(r.month)}</td>
+          <td class="num">${fmt(r.close)}</td>
+          <td class="num">${r.far_close === r.close ? '<span class="tiny">—</span>' : fmt(r.far_close)}</td>
+          <td class="num">${r.far_close === r.close ? '<span class="tiny">—</span>' : fmt(r.far_close - r.close)}</td>
+        </tr>`).join('') || '<tr><td colspan="4" class="muted">暂无行情</td></tr>'}</tbody>
+      </table></div>
+    </div>
+
+    <h2 class="sec">清洗日志</h2>
+    <div class="card">
+      ${logs.length ? logs.map(l => `<div class="log ${l.level==='warn'?'warn':l.level==='error'?'error':''}">
+        <b>${(l.level||'info').toUpperCase()}</b><span>${esc(l.msg)}</span></div>`).join('')
+        : `<p class="muted">本次还没有生成清洗日志。</p>
+           <button class="btn ghost sm" style="margin-top:8px" onclick="openRunSheet()">运行一次预测</button>`}
+    </div>
+
+    <div class="row" style="gap:8px;margin-top:6px">
+      <button class="btn ghost" id="ingestBtn">增量更新行情</button>
+      <button class="btn" id="rerunBtn2">用最新数据重跑</button>
+    </div>
+    <p class="hint" style="margin-top:8px">更新行情会重新拉取该品种的日线并聚合为月度，随后可用「重跑预测」重建模型。</p>`;
+}
+
+/* ---------------------------- 页面：模型 ---------------------------- */
+function pageModels(){
+  const m = S.models || {};
+  const hd = (S.fc && S.fc.headline) || {};
+  const rows = Object.entries(hd.metrics || {});
+  const resid = m.residual || {};
+  const sens = m.sensitivity || [];
+  const season = m.seasonal_profile || [];
+  const imp = Object.entries(m.feature_importance || {}).slice(0, 8)
+    .map(([k,v]) => ({label:k, value:v, text:Math.round(v*100)+'%'}));
+  const folds = (m.folds || []).slice(-10);
+  const el = m.elasticity || {};
+  return `
+    <h1 class="page-title">模型训练 & 回测</h1>
+    <p class="page-sub">季节基准 → SARIMAX → LightGBM/GBRT → 反比误差集成。目标为 6/9/12 个月后的收获窗口均价。</p>
+
+    <h2 class="sec">模型对比（滚动起点回测，跨度 ${hd.horizon_months || S.horizon} 个月）</h2>
+    <div class="card">
+      <div class="scroll-x"><table class="tbl compact">
+        <thead><tr><th>模型</th><th class="num">MAE</th><th class="num">RMSE</th><th class="num">MAPE</th><th class="num">MASE</th><th class="num">方向</th><th class="num">覆盖</th></tr></thead>
+        <tbody>${rows.length ? rows.map(([name, v]) => `<tr>
+          <td class="name">${name === 'ensemble' ? '集成（最终）' : name === 'seasonal_baseline' ? '季节基准' : name === 'sarimax' ? 'SARIMAX' : name === 'gbm' ? 'GBM/LightGBM' : esc(name)}</td>
+          <td class="num">${fmt(v.mae)}</td><td class="num">${fmt(v.rmse)}</td>
+          <td class="num">${v.mape==null?'—':fmt(v.mape,2)+'%'}</td>
+          <td class="num" style="color:${v.mase!=null&&v.mase<1?'#276B56':'#C22A22'}">${v.mase==null?'—':v.mase}</td>
+          <td class="num">${v.dir_acc==null?'—':v.dir_acc+'%'}</td>
+          <td class="num">${v.coverage==null?'—':v.coverage+'%'}</td>
+        </tr>`).join('') : '<tr><td colspan="7" class="muted">尚未回测</td></tr>'}</tbody>
+      </table></div>
+      <p class="tiny" style="margin-top:10px">MASE ${(hd.metrics && hd.metrics.ensemble && hd.metrics.ensemble.mase != null) ? hd.metrics.ensemble.mase : '—'}（&lt; 1 为优于季节基准）</p>
+    </div>
+
+    <h2 class="sec">残差诊断</h2>
+    <div class="card">
+      ${residualChart(resid.series)}
+      <div class="grid2" style="margin-top:10px">
+        <div><div class="kv"><span>均值偏差</span><span>${fmt(resid.mean,1)}</span></div>
+             <div class="kv"><span>标准差</span><span>${fmt(resid.sd,1)}</span></div>
+             <div class="kv"><span>DW 统计量</span><span>${resid.dw ?? '—'}</span></div></div>
+        <div><div class="kv"><span>一阶自相关</span><span>${resid.acf1 ?? '—'}</span></div>
+             <div class="kv"><span>Ljung-Box p</span><span>${resid.ljung_box_p ?? '—'}</span></div>
+             <div class="kv"><span>落在一倍标准差内</span><span>${resid.hit_rate ?? '—'}%</span></div></div>
+      </div>
+    </div>
+
+    <h2 class="sec">灵敏度（输入 ±10% → 价格）</h2>
+    <div class="card">${sens.length ? vbar(sens.map(s => ({
+        label: (s.input_shift_pct>0?'+':'') + s.input_shift_pct + '%',
+        value: s.price, text: fmt(s.price), color: s.input_shift_pct>0 ? 'rgba(255,59,48,.55)' : 'rgba(39,107,86,.65)'
+      })), {showValue:true, height:200})
+      : emptyCard('没有灵敏度结果', '灵敏度依赖本次预测的均值与波动，先跑一次预测。', '运行预测', 'openRunSheet()')}</div>
+
+    <h2 class="sec">季节形状</h2>
+    <div class="card">${season.length ? vbar(season.map(s => ({
+        label: s.month + '月', value: s.index, text: (s.pct>0?'+':'') + s.pct + '%',
+        color: s.pct >= 0 ? 'rgba(39,107,86,.7)' : 'rgba(255,149,0,.6)'
+      })), {showValue:true, height:210})
+      : emptyCard('没有季节分解结果', '季节指数来自本次拟合的季节基准模型。', '运行预测', 'openRunSheet()')}
+      <p class="tiny" style="margin-top:8px">季节指数为对数偏离（扩张窗口估计），正值表示该月价格高于样本均值。</p>
+    </div>
+
+    <h2 class="sec">特征重要性（GBM）</h2>
+    <div class="card">${imp.length ? hbar(imp)
+      : emptyCard('没有特征重要性', 'GBM 未产出模型时没有该结果，先检查样本长度是否足够。', '运行预测', 'openRunSheet()')}</div>
+
+    <h2 class="sec">结构弹性</h2>
+    <div class="card">
+      ${el.available ? `
+        <div class="kv"><span>样本 / R²</span><span>${el.n} · ${el.r2}</span></div>
+        <div class="kv"><span>供给弹性 βs</span><span>${el.beta_supply} （t=${el.t_supply}）</span></div>
+        <div class="kv"><span>需求弹性 βd</span><span>${el.beta_demand} ${el.t_demand!=null?'（t='+el.t_demand+'）':''}</span></div>
+        <div class="kv"><span>符号约束</span><span>${el.sign_ok ? '<span class="chip green">通过</span>' : '<span class="chip red">不符</span>'}</span></div>
+        <p class="hint" style="margin-top:8px">${esc(el.note||'')}</p>`
+        : `<p class="muted">${esc(el.reason || '弹性不可估')}</p>`}
+    </div>
+
+    <h2 class="sec">回测明细（最近 10 折）</h2>
+    <div class="card">
+      <div class="scroll-x"><table class="tbl">
+        <thead><tr><th>起点</th><th>目标期</th><th class="num">实际</th><th class="num">集成</th><th class="num">区间</th><th class="num">误差</th></tr></thead>
+        <tbody>${folds.map(f => {
+          const e = f.ensemble || {};
+          const err = (e.mean != null) ? e.mean - f.actual : null;
+          return `<tr><td class="mono" style="font-size:11px">${esc(f.origin)}</td>
+            <td class="tiny">${esc(f.target_month)}</td>
+            <td class="num">${fmt(f.actual)}</td>
+            <td class="num">${fmt(e.mean)}</td>
+            <td class="num tiny">${fmt(e.lo)}–${fmt(e.hi)}</td>
+            <td class="num" style="color:${err==null?'inherit':Math.abs(err)<f.actual*0.05?'#276B56':'#C22A22'}">${err==null?'—':(err>0?'+':'')+fmt(err)}</td></tr>`;
+        }).join('') || '<tr><td colspan="6" class="muted">还没有回测结果。</td></tr>'}</tbody>
+      </table></div>
+    </div>
+
+    <h2 class="sec">模型参数</h2>
+    <div class="card">
+      <div class="grid2">
+        <div class="field"><label>回测起点数</label><input class="input" id="pOrigins" type="number" min="3" max="30" value="8"></div>
+        <div class="field"><label>目标跨度</label><select class="input" id="pHorizon">
+          ${[6,9,12].map(h => `<option ${h===S.horizon?'selected':''}>${h}</option>`).join('')}</select></div>
+      </div>
+      <p class="hint">学习率、树深、叶子最小样本等参数在 <code class="mono">config/settings.json</code> 的 model.gbm 下；改完重跑生效。</p>
+      <button class="btn" id="trainBtn">执行回测 + 重训</button>
+    </div>`;
+}
+
+/* ---------------------------- 页面：预测结果 ---------------------------- */
+function pageForecast(){
+  const f = S.fc || {};
+  const hs = f.horizons || {};
+  const h = hs[String(S.horizon)] || f.headline || {};
+  if(!h.price) return `<h1 class="page-title">预测结果</h1>
+    ${emptyCard('还没有这个品种的预测结果', '选择品种后运行一次预测，即可得到区间、概率与情景。', '运行预测', 'openRunSheet()')}`;
+  const v = f.validation || {status:'未运行'};
+  const checks = v.checks || [];
+  const scen = f.scenarios || [];
+  const el = f.elasticity || {};
+  const hist = f.history || [];
+
+  return `
+    <h1 class="page-title">预测结果</h1>
+    <p class="page-sub">${esc(f.variety.name)}（${esc(f.variety.ticker)}） · 截止 ${esc(f.as_of_month)} · 目标期 ${(h.target_months||[]).join(' / ')}</p>
+
+    <div class="card glass">
+      <div class="between" style="align-items:flex-start">
+        <div>
+          <div class="tiny" style="margin-bottom:4px">${S.horizon} 个月后收获季均价</div>
+          <div class="price" style="font-size:34px;font-weight:700;letter-spacing:-.025em">${fmt(h.price)}<span class="unit">${esc(unitOf())}</span></div>
+          <div class="band">80% 区间 <b>${fmt(h.lo)} – ${fmt(h.hi)}</b> · 宽度 ${(((h.hi-h.lo)/h.price)*100).toFixed(1)}%</div>
+        </div>
+        <div style="text-align:right">
+          <div class="tiny">上涨概率</div>
+          <div style="font-size:26px;font-weight:700;color:${probColor(h.prob_up)}">${fmt(h.prob_up,1)}%</div>
+          <div class="tiny" style="color:${upColor(h.expected_change_pct)}">${pct(h.expected_change_pct)}</div>
+        </div>
+      </div>
+      <div style="margin-top:14px">${lineChart(hist, h, unitOf())}</div>
+      <div class="row" style="gap:14px;margin-top:2px">
+        <span class="tiny"><i style="display:inline-block;width:14px;height:2px;background:#276B56;vertical-align:middle;margin-right:5px"></i>收盘价</span>
+        <span class="tiny"><i style="display:inline-block;width:14px;height:2px;border-top:1px dashed rgba(60,60,67,.4);vertical-align:middle;margin-right:5px"></i>远月合约</span>
+        <span class="tiny"><i style="display:inline-block;width:12px;height:8px;background:rgba(39,107,86,.13);border-radius:2px;vertical-align:middle;margin-right:5px"></i>80% 区间</span>
+      </div>
+      <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px">
+        <span class="chip gray">当前 ${fmt(h.base_price)}</span>
+        <span class="chip gray">远月 ${fmt(f.far_close)}</span>
+        <span class="chip gray">偏离远月 ${((h.price/f.far_close-1)*100).toFixed(1)}%</span>
+        ${lvlChip(v.status)}
+      </div>
+    </div>
+
+    <h2 class="sec">多跨度对比</h2>
+    <div class="card">
+      <div class="scroll-x"><table class="tbl">
+        <thead><tr><th>跨度</th><th class="num">预测价</th><th class="num">区间</th><th class="num">涨概率</th><th class="num">模型分歧</th></tr></thead>
+        <tbody>${Object.entries(hs).map(([k, x]) => `<tr>
+          <td class="name">${k} 个月</td>
+          <td class="num">${fmt(x.price)}</td>
+          <td class="num tiny">${fmt(x.lo)}–${fmt(x.hi)}</td>
+          <td class="num" style="color:${probColor(x.prob_up)}">${fmt(x.prob_up,1)}%</td>
+          <td class="num tiny">±${fmt((x.hi-x.lo)/2/x.price*100,1)}%</td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+    </div>
+
+    <h2 class="sec">情景分析</h2>
+    ${scen.length ? `<div class="grid3">
+      ${scen.map(s => `<div class="card tight">
+        <div class="between"><span class="chip gray">${esc(s.label)}</span>
+          <span class="tiny" style="color:${upColor(s.change_pct)}">${s.change_pct>0?'+':''}${s.change_pct}%</span></div>
+        <div style="font-size:20px;font-weight:680;margin:8px 0 2px">${fmt(s.price)}</div>
+        <div class="tiny">上涨概率 ${fmt(s.prob_up,1)}%</div>
+        <p class="tiny" style="margin-top:8px">${esc(s.note||'')}</p>
+      </div>`).join('')}
+    </div>
+    <p class="hint" style="margin:-2px 0 4px">情景沿供给维度 ±1σ 移动，用结构弹性换算价格，而非树模型外推：βs=${el.beta_supply ?? '—'}，βd=${el.beta_demand ?? '—'}。</p>`
+      : `<div class="card"><p class="muted">缺少基本面因子，无法估计供给弹性，本次不输出丰产/减产情景。补齐因子后重跑即可恢复。</p></div>`}
+
+    <h2 class="sec">经济学逻辑校验</h2>
+    <div class="card">
+      <div class="between" style="margin-bottom:6px">
+        ${lvlChip(v.status)}
+        <span class="tiny">info ${v.counts?.info ?? 0} · warn ${v.counts?.warn ?? 0} · error ${v.counts?.error ?? 0}</span>
+      </div>
+      ${checks.map(c => `<div class="chk ${c.level==='info'?'':c.level}">
+        <div class="ic">${c.level==='error'?'!':c.level==='warn'?'!':'✓'}</div>
+        <div><div class="t">${esc(c.title)}</div><div class="m">${esc(c.message)}</div></div>
+      </div>`).join('')}
+    </div>
+
+    <h2 class="sec">模型构成</h2>
+    <div class="card">
+      <div class="scroll-x"><table class="tbl">
+        <thead><tr><th>模型</th><th class="num">报价</th><th class="num">权重</th><th class="num">波动 σ</th><th class="num">区间</th></tr></thead>
+        <tbody>${(h.models||[]).map(m => `<tr>
+          <td class="name">${m.name === 'seasonal_baseline' ? '季节基准' : m.name === 'sarimax' ? 'SARIMAX' : 'GBM'}</td>
+          <td class="num">${fmt(m.price)}</td><td class="num">${Math.round(m.weight*100)}%</td>
+          <td class="num tiny">${(m.sigma*100).toFixed(1)}%</td>
+          <td class="num tiny">${fmt(m.lo)}–${fmt(m.hi)}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+      <p class="tiny" style="margin-top:10px">权重为反比 MSE（仅用该时点之前的历史误差），并设 5% 下限防止单模型垄断。区间同时计入模型内方差与模型间分歧。</p>
+    </div>
+
+    <h2 class="sec">结论怎么用</h2>
+    <div class="card">
+      <div class="kv"><span>建议关注区间</span><span>${fmt(h.lo)} – ${fmt(h.hi)}</span></div>
+      <div class="kv"><span>方向倾向</span><span>${h.prob_up>=60?'偏多':h.prob_up<=40?'偏空':'中性/不明'}</span></div>
+      <div class="kv"><span>校验结论</span><span>${v.status==='pass'?'通过，可作参考':'存在告警，需人工复核'}</span></div>
+      <p class="hint" style="margin-top:8px">${(v.counts && v.counts.error) ? '存在不通过项，先处理校验问题再看结论。' : ''}</p>
+    </div>`;
+}
+
+/* ---------------------------- 页面：设置 ---------------------------- */
+function pageSettings(){
+  const s = S.settings || {};
+  if(!s.settings){
+    return `<h1 class="page-title">系统设置</h1>
+      <p class="page-sub">依赖、协议、参数与自检清单。</p>
+      <div class="card"><p class="muted">没有取到配置信息。</p>
+      <p class="hint" style="margin-top:6px">请确认本地服务已启动（<span class="mono">python -m src.cli serve</span>），刷新后重试。离线打开 HTML 时该页只显示内置示例。</p></div>`;
+  }
+  const tp = s.third_party || {};
+  const deps = s.optional_deps || {};
+  const items = tp.components || [];
+  return `
+    <h1 class="page-title">系统设置</h1>
+    <p class="page-sub">运行环境、开源许可与参数配置。</p>
+
+    <h2 class="sec">运行环境</h2>
+    <div class="card">
+      <div class="kv"><span>Python</span><span>${esc(s.python||'—')}</span></div>
+      <div class="kv"><span>配置文件</span><span class="mono" style="font-size:11px">${esc(s.settings_path||'—')}</span></div>
+      <div class="kv"><span>API Key</span><span>${s.api_key_configured?'<span class="chip green">已配置</span>':'<span class="chip gray">未配置（可用手动模式）</span>'}</span></div>
+      <div style="margin-top:10px"><h3 class="mini">可选依赖</h3>
+        <div class="row" style="flex-wrap:wrap;gap:6px">
+          ${Object.entries(deps).map(([k,v]) => `<span class="chip ${v?'green':'gray'}">${esc(k)} ${v?'已装':'未装'}</span>`).join('')}
+        </div>
+        <p class="hint" style="margin-top:8px">全部为可选。缺失时系统自动使用内置纯 Python 实现（GBRT / CLS-SARIMAX），功能不受影响，只是速度与精度略降。</p>
+      </div>
+    </div>
+
+    <h2 class="sec">开源许可</h2>
+    <div class="card">
+      <div class="scroll-x"><table class="tbl">
+        <thead><tr><th>组件</th><th>协议</th><th>用途</th><th class="num">可商用</th></tr></thead>
+        <tbody>${items.map(c => `<tr>
+          <td class="name">${esc(c.name)}<div class="tiny">${esc(c.project||'')}</div></td>
+          <td><span class="chip ${String(c.license).includes('GPL')?'red':'green'}">${esc(c.license)}</span></td>
+          <td class="tiny">${esc(c.use||'')}</td>
+          <td class="num">${c.commercial ? '✓' : '✗'}</td>
+        </tr>`).join('') || '<tr><td colspan="4" class="muted">未找到 third_party_licenses.json</td></tr>'}</tbody>
+      </table></div>
+    </div>
+
+    <h2 class="sec">参数配置</h2>
+    <div class="card">
+      <pre class="input code" style="max-height:260px;overflow:auto;white-space:pre-wrap;word-break:break-word">${esc(JSON.stringify(s.settings||{}, null, 2))}</pre>
+      <p class="hint" style="margin-top:8px">直接编辑 config/settings.json，重启服务生效。API Key 建议放环境变量 HARVESTCAST_API_KEY，不要写进文件。</p>
+    </div>
+
+    <div class="card">
+      <div class="between">
+        <p class="muted" style="margin:0">数据来源、授权状态与免责声明见「关于」。</p>
+        <button class="btn ghost sm" onclick="go('about')">打开关于</button>
+      </div>
+    </div>
+    </div>`;
+}
+
+/* ---------------------------- 页面：关于 ---------------------------- */
+function pageAbout(){
+  const s0 = S.settings || {};
+  if(!s0.third_party){
+    return `<h1 class="page-title">关于</h1>
+      ${failureCard('没有取到系统信息', '该页内容来自 /api/settings 接口。', 'reloadPage()')}`;
+  }
+  const tp = s0.third_party || {};
+  const ds = tp.data_sources || [];
+  const comps = (tp.components || []).filter(c => c.commercial).length;
+  return `
+    <h1 class="page-title">关于</h1>
+    <p class="page-sub">HarvestCast · 农产品中长期价格预测</p>
+
+    <div class="card">
+      <p class="muted">输入品种与播种时点，输出 6–12 个月后收获季的价格区间与涨跌概率。
+      价格由季节基准、SARIMAX 与梯度提升树集成给出；基本面因子来自公开资料的结构化抽取。</p>
+      <div class="kv" style="margin-top:10px"><span>版本</span><span>${esc((s0.settings && s0.settings.version) || '1.0.0')}</span></div>
+      <div class="kv"><span>运行环境</span><span>Python ${esc(s0.python || '—')}</span></div>
+      <div class="kv"><span>开源许可</span><span>MIT · 可商用组件 ${comps} 项</span></div>
+    </div>
+
+    <h2 class="sec">数据来源与授权</h2>
+    <div class="card">
+      ${ds.length ? `<div class="scroll-x"><table class="tbl compact">
+        <thead><tr><th>来源</th><th>协议 / 授权</th><th class="num">可商用</th></tr></thead>
+        <tbody>${ds.map(d => `<tr>
+          <td class="name">${esc(d.name)}<div class="tiny">${esc(d.use || '')}</div></td>
+          <td class="tiny">${esc(d.license || '—')}</td>
+          <td class="num">${d.commercial ? '✓' : '—'}</td>
+        </tr>`).join('')}</tbody></table></div>`
+        : '<p class="muted">没有取到数据源清单。</p>'}
+    </div>
+
+    <h2 class="sec">免责声明</h2>
+    <div class="card">
+      <p class="muted">输出为概率区间，不构成投资建议，也不承诺收益。历史回测不代表未来表现；
+      行情与基本面数据可能滞后、修订或存在口径差异，据此决策的后果由使用者自行承担。</p>
+      <button class="btn ghost sm" style="margin-top:10px" onclick="go('settings')">查看开源许可</button>
+    </div>`;
+}
+
+/* ---------------------------- 渲染 ---------------------------- */
+function render(){
+  const view = $('#view');
+  if(!view) return;
+  if(!S.state){
+    view.innerHTML = failureCard('无法连接本地服务',
+      '界面数据全部来自本地 API：请先运行 python -m src.cli serve，再点重试。', 'boot()');
+    return;
+  }
+  if(S.load.status === 'loading'){ view.innerHTML = skeleton(); return; }
+  if(S.load.status === 'error'){
+    view.innerHTML = failureCard('数据加载失败', S.load.msg, 'reloadPage()');
+    return;
+  }
+  const map = {overview:pageOverview, extraction:pageExtraction, data:pageData,
+               models:pageModels, forecast:pageForecast, settings:pageSettings, about:pageAbout};
+  try{
+    view.innerHTML = (map[S.page] || pageOverview)();
+    bindPage();
+    if(S.page === 'extraction') renderModeBody(S.extraction.mode || 'manual');
+  }catch(e){
+    console.error('[render]', e);
+    view.innerHTML = failureCard('页面渲染失败', e.message, 'reloadPage()');
+  }
+}
+
+function bindPage(){
+  if(S.page === 'extraction'){
+    $$('#modeSeg button').forEach(b => b.addEventListener('click', () => {
+      $$('#modeSeg button').forEach(x => x.classList.toggle('on', x === b));
+      renderModeBody(b.dataset.mode);
+    }));
+  }
+  const initBtn = $('#initBtn');
+  if(initBtn) initBtn.addEventListener('click', startInit);
+  const train = $('#trainBtn');
+  if(train) train.addEventListener('click', () => openRunSheet());
+  const rerun = $('#rerunBtn2');
+  if(rerun) rerun.addEventListener('click', () => openRunSheet());
+  const ingest = $('#ingestBtn');
+  if(ingest) ingest.addEventListener('click', () => toast('命令行执行：python -m src.cli ingest --variety ' + S.variety + ' --source akshare'));
+}
+
+async function startInit(variety){
+  if(!S.state){ toast('未连接本地服务'); return; }
+  showSysbar('正在启动取数任务…');
+  const r = await api('/api/init', {method:'POST', body: JSON.stringify({variety: variety || 'all', allow_demo:false})});
+  if(!r){
+    showSysbar('取数任务启动失败：本地服务没有响应。请确认服务在运行后重试。', 'err', true);
+    return;
+  }
+  showSysbar(`正在获取初始行情（共 ${r.total || 0} 个品种），首次约 1–3 分钟…`);
+  pollTask(r.task, 'init');
+}
+
+// 首次进入且完全没有数据时自动执行：避免用户先去命令行敲 init
+async function autoInit(){
+  if(!S.state) return;
+  if(sessionStorage.getItem('hc_autoinit') === '1') return;
+  sessionStorage.setItem('hc_autoinit', '1');
+  showSysbar('未检测到行情数据，正在自动获取初始行情…');
+  await startInit('all');
+}
+
+/* ---------------------------- 运行 Sheet ---------------------------- */
+function openRunSheet(){
+  if(!S.state){ toast('未连接本地服务，无法运行'); return; }
+  const wrap = $('#sheetWrap');
+  $('#sheetTitle').textContent = '重跑预测';
+  $('#sheetBody').innerHTML = `
+    <div class="field"><label>回测起点数（越多越稳，越慢）</label>
+      <input class="input" id="sOrigins" type="number" min="3" max="30" value="8"></div>
+    <div class="field"><label>目标跨度</label>
+      <div class="seg" id="sHorizon">${[6,9,12].map(h=>`<button data-h="${h}" class="${h===S.horizon?'on':''}">${h} 个月</button>`).join('')}</div></div>
+    <div class="field"><label>本次是否回测</label>
+      <div class="seg" id="sBacktest"><button data-v="1" class="on">回测 + 重训</button><button data-v="0">仅重训</button></div></div>
+    <p class="hint">运行期间页面可继续浏览，完成后自动刷新并标记红点。</p>`;
+  wrap.classList.add('on'); wrap.setAttribute('aria-hidden','false');
+  document.body.classList.add('sheet-open');
+  $$('#sHorizon button').forEach(b => b.addEventListener('click', () => {
+    $$('#sHorizon button').forEach(x=>x.classList.toggle('on', x===b)); S.horizon = Number(b.dataset.h);
+  }));
+  let bt = 1;
+  $$('#sBacktest button').forEach(b => b.addEventListener('click', () => {
+    $$('#sBacktest button').forEach(x=>x.classList.toggle('on', x===b)); bt = Number(b.dataset.v);
+  }));
+  $('#sheetGo').onclick = async () => {
+    const origins = Number($('#sOrigins').value || 8);
+    closeSheet();
+    const r = await api('/api/run', {method:'POST', body: JSON.stringify({variety:S.variety, origins, backtest: !!bt})});
+    if(!r){ toast('启动失败'); return; }
+    toast('已开始，预计 10–60 秒');
+    pollTask(r.task);
+  };
+}
+function closeSheet(){
+  const wrap = $('#sheetWrap'); wrap.classList.remove('on'); wrap.setAttribute('aria-hidden','true');
+  document.body.classList.remove('sheet-open');
+  const sh = $('#sheet'); if(sh){ sh.style.transform = ''; sh.classList.remove('dragging'); }
+}
+
+async function pollTask(key, kind){
+  const started = Date.now();
+  const LIMIT = 15 * 60 * 1000;      // 最长等 15 分钟，超时不再空转
+  let misses = 0;
+  const tick = async () => {
+    if(Date.now() - started > LIMIT){
+      showSysbar('取数/预测耗时过长，已停止等待。请到概览页查看当前状态，或点重试。', 'warn', true);
+      return;
+    }
+    const st = await api('/api/state');
+    if(!st){
+      misses += 1;
+      if(misses >= 5){
+        showSysbar('与本地服务的连接中断，请确认服务仍在运行后重试。', 'err', true);
+        return;
+      }
+      setTimeout(tick, 1500);
+      return;
+    }
+    misses = 0;
+    const t = (st.tasks || {})[key];
+    if(!t){
+      // 任务可能已被服务重启清空：短时间重试几次后放弃
+      if(Date.now() - started < 30000){ setTimeout(tick, 1500); return; }
+      showSysbar('任务状态丢失（服务可能重启过），请重试。', 'warn', true);
+      return;
+    }
+    const el = $('#runState');
+    if(t.state === 'running'){
+      if(kind === 'init'){
+        const prog = t.total ? ` ${Math.min(t.done || 0, t.total)}/${t.total}` : '';
+        showSysbar(`正在获取行情${prog}：${t.message || ''}`);
+      }else{
+        el.className = 'status'; el.innerHTML = `<i></i><span>运行中… ${esc(t.message||'')}</span>`;
+      }
+      setTimeout(tick, 1500);
+      return;
+    }
+    S.state = st;
+    if(t.state === 'done'){
+      showSysbar(t.message || '完成');
+      if(kind === 'init'){
+        const r = t.result || {};
+        if(r.failed){
+          showSysbar(`取数完成：成功 ${r.ok}、跳过 ${r.skipped}、失败 ${r.failed}。失败的品种可点重试，或改用 --allow-demo 离线演示。`, 'warn', true);
+        }else{
+          showSysbar(''); 
+        }
+      }
+      toast(t.message || (t.price != null ? ('预测完成：' + fmt(t.price)) : '完成'));
+      setDot('forecast', true);
+      await loadAll();
+      buildHorizonSeg();
+      renderTop();
+      if(kind === 'init') setTimeout(() => showSysbar(''), 2500);
+    }else{
+      showSysbar((kind === 'init' ? '取数失败：' : '运行失败：') + (t.message || '未知错误'), 'err', true);
+      el.className = 'status err'; el.innerHTML = '<i></i><span>运行失败</span>';
+    }
+  };
+  setTimeout(tick, 800);
+}
+
+/* ---------------------------- 交互：手势 ---------------------------- */
+(function gestures(){
+  const sh = $('#sheet');
+  let startY = 0, dy = 0, dragging = false;
+  const onDown = (e) => {
+    if(!$('#sheetWrap').classList.contains('on')) return;
+    if(e.target.closest('button,input,select,textarea')) return;
+    dragging = true; startY = (e.touches ? e.touches[0].clientY : e.clientY); dy = 0;
+    sh.classList.add('dragging');
+  };
+  const onMove = (e) => {
+    if(!dragging) return;
+    const y = (e.touches ? e.touches[0].clientY : e.clientY);
+    dy = Math.max(0, y - startY);
+    sh.style.transform = `translateY(${dy}px)`;
+    if(e.cancelable) e.preventDefault();
+  };
+  const onUp = () => {
+    if(!dragging) return;
+    dragging = false; sh.classList.remove('dragging');
+    if(dy > 90){ closeSheet(); } else { sh.style.transform = ''; }
+    dy = 0;
+  };
+  sh.addEventListener('mousedown', onDown); sh.addEventListener('touchstart', onDown, {passive:true});
+  window.addEventListener('mousemove', onMove); window.addEventListener('touchmove', onMove, {passive:false});
+  window.addEventListener('mouseup', onUp); window.addEventListener('touchend', onUp);
+  document.addEventListener('click', (e) => {
+    if(e.target.dataset && e.target.dataset.close) closeSheet();
+  });
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape'){ closeSheet(); closeDrawer(); } });
+})();
+
+window.go = go;
+boot();
+</script>
+</body>
+</html>
