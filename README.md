@@ -120,7 +120,7 @@ HarvestCast 是一套**轻量、开源可商用、面向低波动农产品**的�
 ### 手动启动
 
 ```bash
-git clone https://github.com/<your-org>/harvestcast.git
+git clone https://github.com/YUN2023c/HarvestCast.git
 cd harvestcast
 
 # 1) 获取初始行情（首次必须；没有数据时预测会直接拒绝）
@@ -425,7 +425,7 @@ python  no-database  mit-license  china-futures  corn  soybean  sugar  cotton
   title  = {HarvestCast: Lightweight Long-Horizon Agricultural Commodity Price Forecasting},
   author = {HarvestCast contributors},
   year   = {2026},
-  url    = {https://github.com/<your-org>/harvestcast},
+  url    = {https://github.com/YUN2023c/HarvestCast},
   note   = {Seasonal baseline + SARIMAX + GBM ensemble with economic sanity checks}
 }
 ```
