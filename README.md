@@ -178,7 +178,7 @@ harvestcast/
 │   │   ├── store.py            # CSV/JSON 原子写入 + 审计日志
 │   │   ├── clean.py            # 月度聚合、补缺、MAD 去噪、单位归一、因子去重
 │   │   ├── features.py         # 防未来函数特征工程 + 直接多步目标构造
-│   │   └── ingest.py           # AKShare 适配器 + 合成数据生成器
+│   │   └── ingest.py           # 新浪日线直连（默认）+ AKShare 备用 + 合成演示数据
 │   ├── llm/
 │   │   ├── prompt_builder.py   # 模板渲染 + SHA256 指纹
 │   │   ├── jsonschema_lite.py  # 极简 Schema 校验（三层校验的第一层）
@@ -196,8 +196,9 @@ harvestcast/
 │   │   └── validator.py        # 九项经济学逻辑校验
 │   ├── server.py               # 本地 HTTP 服务（只读文件 + 触发任务）
 │   └── cli.py                  # 命令行入口
-├── web/index.html              # 单文件前端（内联示例数据）
-├── tests/test_pipeline.py      # 31 个单测
+├── scripts/build_llms.py       # 生成 llms-full.txt（AI 引擎全文合集）
+├── web/index.html              # 单文件前端（数据来自本地 API）
+├── tests/                      # 42 项单元测试
 ├── docs/
 │   ├── ARCHITECTURE.md         # 架构与校验矩阵
 │   ├── RESEARCH.md             # 10 方向调研 + 开源项目与协议核验
@@ -220,15 +221,17 @@ python -m src.cli predict --variety corn --origins 8
 
 输出示例：
 
+以下为**合成演示数据 + 已补基本面因子**时的输出示例（真实行情且未抽因子时，不显示情景行，并多一条「缺少基本面因子」告警）：
+
 ```text
 玉米（C） 截止 2026-11
 目标期      2027-09 / 2027-10 / 2027-11
-预测价格    2,472 元/吨   [2,243, 2,724] (80%)
+预测价格    2,278 元/吨   [1,942, 2,671] (80%)
 当前/远月   2,588 / 2,560
-上涨概率    27.3%   预期变动 -4.49%
-模型权重    {'gbm': 0.44, 'sarimax': 0.34, 'seasonal_baseline': 0.22}
-  情景 丰产  2,409   情景 平产  2,472   情景 减产  2,536
-逻辑校验    warn  (warn=1, error=0)
+上涨概率    15.3%   预期变动 -11.98%
+模型权重    {'gbm': 0.239, 'sarimax': 0.458, 'seasonal_baseline': 0.302}
+  情景 丰产  2,220   情景 平产  2,278   情景 减产  2,337
+逻辑校验    pass  (warn=0, error=0)
 ```
 
 ### 2. 手工模式抽取基本面
