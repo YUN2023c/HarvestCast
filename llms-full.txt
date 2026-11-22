@@ -1,0 +1,1006 @@
+# HarvestCast · 完整文档合集（llms-full）
+
+> 本文件由 scripts/build_llms.py 自动生成，内容 = 主文档全文拼接，供 LLM 一次性读取。更新文档后请重跑：python scripts/build_llms.py
+
+
+---
+
+<!-- 来源文件：README.md -->
+
+# HarvestCast · 农产品中长期价格预测系统
+
+> 在**播种时点**回答一个问题：6–12 个月后的**收获季**，这个品种的价格大概落在哪个区间，涨的概率有多大。
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-276B56.svg)](./LICENSE)
+[![Wiki](https://img.shields.io/badge/docs-Wiki-4E9C80.svg)](https://github.com/YUN2023c/HarvestCast/wiki)
+[![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB.svg)](https://www.python.org/)
+[![Runtime deps](https://img.shields.io/badge/runtime%20deps-0-brightgreen.svg)](./requirements-optional.txt)
+[![Models](https://img.shields.io/badge/models-Seasonal%20%7C%20SARIMAX%20%7C%20GBM-4E9C80.svg)](#方法论)
+[![UI](https://img.shields.io/badge/UI-single--file%20HTML-000000.svg)](./web/index.html)
+
+**摘要**：**HarvestCast** 是一个开源（MIT）的**农产品中长期价格预测系统**：以公开期货行情与基本面因子为输入，用季节基准、SARIMAX、梯度提升树三模型集成，输出 22 个中国农产品期货品种 **6–12 个月后收获季**的价格区间与涨跌概率。运行时零第三方依赖，42 项单元测试，LLM 仅做信息抽取、绝不预测价格。
+
+> **HarvestCast** is an open-source (MIT) long-horizon agricultural commodity price forecasting system. It ensembles a seasonal baseline, SARIMAX and gradient-boosted trees to output probabilistic harvest-season price ranges (80% intervals, up/down probability) for 22 Chinese agricultural futures varieties, 6–12 months ahead. Zero runtime dependencies; 42 unit tests; the LLM only extracts fundamentals and never predicts prices.
+
+**关键词 / Keywords**：农产品价格预测 · 中长期价格区间 · 收获季定价 · 供需基本面 · 结构化抽取 · SARIMAX · LightGBM · 可解释量化 · agricultural commodity price forecasting · long-horizon forecast · supply-demand fundamentals · LLM structured extraction · seasonal baseline · probabilistic forecast
+
+---
+
+## 界面预览
+
+| 项目概览 | 预测结果 |
+|---|---|
+| ![概览](docs/preview/overview.png) | ![预测](docs/preview/forecast.png) |
+
+| 模型与回测 | LLM 抽取配置 |
+|---|---|
+| ![模型](docs/preview/models.png) | ![抽取](docs/preview/extraction.png) |
+
+侧边导航在 ≥820px 固定左侧（240px 玻璃面板，选中态垂直 lens），<820px 收起为浮动按钮 + 左侧弹簧抽屉；
+全部图表为手写内联 SVG，无图表库、无外部请求。
+
+---
+
+## 目录
+
+- [这是什么](#这是什么)
+- [核心设计：三条铁律](#核心设计三条铁律)
+- [特性](#特性)
+- [快速开始](#快速开始)
+- [目录结构](#目录结构)
+- [使用教程](#使用教程)
+- [方法论](#方法论)
+- [模型与评价](#模型与评价)
+- [数据来源与授权风险](#数据来源与授权风险)
+- [参考与数据来源](#参考与数据来源)
+- [常见问题](#常见问题)
+- [贡献指南](#贡献指南)
+- [开源协议](#开源协议)
+- [引用](#引用)
+
+---
+
+## 这是什么
+
+HarvestCast 是一套**轻量、开源可商用、面向低波动农产品**的中长期价格预测系统。它不是高频交易系统，也不做分钟级择时；它解决的是农业生产与采购决策里最实际的那个问题——**今年秋天的收购价，大概在什么范围**。
+
+| 维度 | 取值 |
+|---|---|
+| 预测目标 | 收获窗口（可跨 2–3 个月）的月度均价 |
+| 预测跨度 | 6 / 9 / 12 个月（可配置） |
+| 建模频率 | 月度（明确禁止 tick / 日线高频） |
+| 输出 | 价格区间 + 涨跌概率 + 三情景 + 逻辑校验结论 |
+| 运行时依赖 | **0 个第三方包**（行情抓取、建模、前端全部走标准库） |
+| 初始数据 | 首次运行自动拉取真实行情（新浪日线），**不会用合成数据顶替** |
+| 可选加速 | statsmodels / LightGBM / pandas / AKShare |
+| 前端 | 单文件 HTML（液态玻璃 + 侧边导航，PC/移动自适应） |
+
+覆盖 **22 个农产品品种**，按四类组织（新增品种见 [常见问题](#常见问题)）：
+
+| 分类 | 品种 |
+|---|---|
+| 谷物 | 玉米 C、玉米淀粉 CS、粳米 RR、晚籼稻 LR、早籼稻 RI、强麦 WH |
+| 油脂油料 | 豆一 A、豆二 B、豆粕 M、豆油 Y、棕榈油 P、菜粕 RM、菜籽油 OI、油菜籽 RS、花生 PK |
+| 软商品 | 白糖 SR、棉花 CF、天然橡胶 RU |
+| 生鲜 | 苹果 AP、红枣 CJ、生猪 LH、鸡蛋 JD |
+
+---
+
+## 核心设计：三条铁律
+
+1. **LLM 绝不预测价格。**
+   大模型只做「检索 → 抽取 → 结构化」，输出因子、来源、原文摘录、置信度。任何含「目标价 / 预计涨到」字样的产出会被业务校验层直接拒收。
+
+2. **价格只能由数学模型给出。**
+   季节基准、SARIMAX、GBM 三路并行，按误差反比集成，输出区间与概率，不追求单点精度。
+
+3. **结果必须过经济学体检。**
+   价格带、区间宽度、远月定价偏离、季节形状、情景单调性、MASE、样本长度、因子覆盖——九项检查，异常必须告警，不允许静默放行。
+
+> 一个副作用值得提前说明：当模型跑不赢季节朴素基准时，系统会**主动告诉你**（MASE ≥ 1 触发告警）。多数农产品月度价格的长跨度预测本就接近随机游走，这个告警是特性，不是缺陷。
+
+---
+
+## 特性
+
+| 特性 | 说明 |
+|---|---|
+| 文件式数据管线 | CSV/JSON 落盘，无数据库；写入原子替换且自动留 `.bak` |
+| 初始行情引导 | 首次运行先取真实行情；通道全失败就报错，**绝不用合成数据顶替**；落地时自动隔离残留的合成因子 |
+| 双模式 LLM 抽取 | API 自动模式 / 人工粘贴模式，共用同一提示词与 Schema，产出结构 100% 一致 |
+| 严格的 Schema 契约 | JSON Schema 2020-12 + strict 三约束（`additionalProperties:false`、全字段 `required`、可空用 `[T,null]`） |
+| 防未来函数 | 因子按发布日可见；滚动统计一律 expanding；目标与特征时间严格分离 |
+| 三模型集成 | 权重来自滚动回测的反比 MSE，且只用「该时点之前」的误差 |
+| 情景分析走结构弹性 | 不用树模型外推（树无法外推，极端情景响应会被压平），改由 OLS 弹性换算 |
+| 全链路审计 | 每次数据写入、抽取入库、预测落盘都追加一行 `audit.log` |
+| 协议干净 | 仅 MIT / BSD / Apache / PSF；明确排除 GPL/LGPL/AGPL |
+
+---
+
+## 快速开始
+
+### Windows 一键启动
+
+双击项目根目录的 **`start.bat`**（纯 ASCII，无中文输出）：
+
+1. 检测 `python` / `py -3`；
+2. **没有数据时先拉真实行情**（22 个品种，约 1–3 分钟），拉取失败就停下并给出提示，不会偷偷塞合成数据；
+3. 跑一次首个可用品种的预测；
+4. 后台启动本地服务，日志写入 `logs/server.log`；
+5. 端口就绪后自动打开浏览器。
+
+再次双击时若服务已在运行，只打开界面不会重复启动。设置环境变量 `HC_NO_BROWSER=1` 可只起服务、不弹浏览器（适合脚本/CI）。
+
+### 手动启动
+
+```bash
+git clone https://github.com/YUN2023c/HarvestCast.git
+cd harvestcast
+
+# 1) 获取初始行情（首次必须；没有数据时预测会直接拒绝）
+python -m src.cli init              # 全部 22 个品种
+python -m src.cli init --variety corn,sugar   # 只拉指定品种
+
+# 2) 跑一次完整预测（清洗 → 特征 → 三模型 → 集成 → 校验）
+python -m src.cli predict --variety corn
+
+# 3) 打开界面
+python -m src.cli serve --port 8848
+# 浏览器访问 http://127.0.0.1:8848
+```
+
+完全离线（无网络）时可显式生成合成数据，仅用于流程演示：
+
+```bash
+python -m src.cli init --allow-demo     # 或 python -m src.cli demo
+```
+
+要求 **Python ≥ 3.9**，无需 `pip install` 任何包即可跑通。想更快/更准可选装：
+
+```bash
+pip install -r requirements-optional.txt   # statsmodels, lightgbm, pandas, akshare
+```
+
+界面数据全部来自本地 API，**没有服务就如实报错**（带重试按钮），不会再内联一份旧数据冒充实时结果。
+
+---
+
+## 目录结构
+
+```text
+harvestcast/
+├── config/
+│   ├── varieties.json          # 品种主数据（收获月、合约周期、价格带、关键因子）
+│   └── settings.example.json   # 参数模板（复制为 settings.json 后修改）
+├── prompts/
+│   ├── extraction_prompt.md    # 唯一提示词模板（占位符渲染）
+│   └── schema.json             # 抽取结果 JSON Schema（2020-12，strict 兼容）
+├── src/
+│   ├── core/
+│   │   ├── numeric.py          # 纯 Python 数值基座（OLS / 正态 / ACF / Ljung-Box / 指标）
+│   │   ├── timeutil.py         # 月序号口径、收获窗口吸附
+│   │   └── config.py           # 路径与配置加载
+│   ├── data/
+│   │   ├── schema.py           # 数据契约（MarketRow / FactorRow / DatasetBundle）
+│   │   ├── store.py            # CSV/JSON 原子写入 + 审计日志
+│   │   ├── clean.py            # 月度聚合、补缺、MAD 去噪、单位归一、因子去重
+│   │   ├── features.py         # 防未来函数特征工程 + 直接多步目标构造
+│   │   └── ingest.py           # AKShare 适配器 + 合成数据生成器
+│   ├── llm/
+│   │   ├── prompt_builder.py   # 模板渲染 + SHA256 指纹
+│   │   ├── jsonschema_lite.py  # 极简 Schema 校验（三层校验的第一层）
+│   │   ├── client.py           # chat/completions 与 responses 两种接口形态
+│   │   └── extract.py          # 业务校验 → 归一化 → 合并入库
+│   ├── models/
+│   │   ├── base.py             # Forecast 契约、样本切片、残差尺度
+│   │   ├── seasonal.py         # 季节基准（必须被打败的下限）
+│   │   ├── sarimax.py          # SARIMAX 条件最小二乘（可选 statsmodels 对照）
+│   │   ├── gbm.py              # 内置 GBRT / 可选 LightGBM，直接多步
+│   │   ├── ensemble.py         # 反比 MSE 集成、概率、情景
+│   │   └── backtest.py         # 滚动起点回测、五类指标、残差诊断
+│   ├── econ/
+│   │   ├── elasticity.py       # 结构弹性估计（情景分析的依据）
+│   │   └── validator.py        # 九项经济学逻辑校验
+│   ├── server.py               # 本地 HTTP 服务（只读文件 + 触发任务）
+│   └── cli.py                  # 命令行入口
+├── web/index.html              # 单文件前端（内联示例数据）
+├── tests/test_pipeline.py      # 31 个单测
+├── docs/
+│   ├── ARCHITECTURE.md         # 架构与校验矩阵
+│   ├── RESEARCH.md             # 10 方向调研 + 开源项目与协议核验
+│   ├── DATA_SOURCES.md         # 数据源与授权风险
+│   └── UI_SPEC.md              # 设计系统与验收清单
+├── data/                       # market / fundamentals / derived / output（运行后生成）
+├── THIRD_PARTY_NOTICES.md
+└── LICENSE
+```
+
+---
+
+## 使用教程
+
+### 1. 选品种、跑预测
+
+```bash
+python -m src.cli predict --variety corn --origins 8
+```
+
+输出示例：
+
+```text
+玉米（C） 截止 2026-11
+目标期      2027-09 / 2027-10 / 2027-11
+预测价格    2,472 元/吨   [2,243, 2,724] (80%)
+当前/远月   2,588 / 2,560
+上涨概率    27.3%   预期变动 -4.49%
+模型权重    {'gbm': 0.44, 'sarimax': 0.34, 'seasonal_baseline': 0.22}
+  情景 丰产  2,409   情景 平产  2,472   情景 减产  2,536
+逻辑校验    warn  (warn=1, error=0)
+```
+
+### 2. 手工模式抽取基本面
+
+```bash
+# 导出提示词（含完整 Schema，可复制到任意联网模型）
+python -m src.cli prompt --variety corn --as-of 2026-09-30
+
+# 把模型返回的 JSON 存成文件后回填
+python -m src.cli extract --variety corn --json-file data/output/pasted.json
+```
+
+入库会经过三层校验：**结构**（字段/类型/枚举）→ **约束**（正则/范围/数组长度）→ **业务**（日期不得晚于截止日、不得含价格预测表述、品种必须匹配、重复项去重）。低置信或无来源的记录不会进入训练集。
+
+### 3. API 自动模式
+
+```bash
+export HARVESTCAST_API_KEY=sk-xxx
+python -m src.cli api --variety corn
+```
+
+在 `config/settings.json` 中设置 `llm.api_style`：
+
+- `chat`（默认）：`/chat/completions` + `response_format.json_schema`，兼容多数 OpenAI 风格端点；
+- `responses`：`/responses` + `web_search` 工具，适合需要「联网 + 结构化」一步到位的场景。
+
+> **能力边界**：纯 `chat/completions` 接口本身不联网。所谓自动模式依赖模型自带检索能力或上游网关代检索。模型不支持检索时，请用手工模式——两条路径的 Schema 与校验完全相同。
+
+### 4. 界面
+
+| 页面 | 你能做什么 |
+|---|---|
+| 项目概览 | 看各品种当前预测、任务状态环形进度、校验结论 |
+| LLM 抽取配置 | 切换 API/手工模式、复制提示词、回填 JSON、看入库质量 |
+| 数据管理 | 看行情快照、因子置信度与来源、覆盖率、清洗日志 |
+| 模型与回测 | 看模型对比表、残差图、灵敏度、季节形状、特征重要性、弹性 |
+| 预测结果 | 区间带图、多跨度对比、三情景、九项校验逐条结论 |
+| 系统设置 | 运行环境、可选依赖、开源许可、参数 JSON |
+| 关于 | 数据来源与授权、免责声明、版本信息 |
+
+---
+
+## 方法论
+
+### 数据流
+
+```mermaid
+flowchart LR
+  A[LLM 检索/抽取<br/>双模式] -->|JSON + 来源| B[业务校验]
+  B -->|合格因子| C[清洗与对齐]
+  M[行情数据<br/>月度] --> C
+  C --> D[特征工程<br/>防未来函数]
+  D --> E1[季节基准]
+  D --> E2[SARIMAX]
+  D --> E3[GBM/LightGBM]
+  E1 --> F[反比误差集成]
+  E2 --> F
+  E3 --> F
+  F --> G[结构弹性情景]
+  G --> H[九项经济学校验]
+  H --> I[区间 + 概率 + 情景 + 告警]
+```
+
+### 关键取舍
+
+**为什么目标是「收获窗口均价」而不是某一天的收盘价？**
+收获期本身横跨 2–3 个月，单点价格噪声大且不可操作；窗口均值对应真实的销售/采购决策，也让 MASE 的分母口径保持自洽。
+
+**为什么用直接多步而不是递归预测？**
+递归把每一步的误差反馈进下一步，6–12 个月后误差会被放大数倍。直接法对每个跨度单独训练，结构上不累积误差。
+
+**为什么 SARIMAX 只做 AR + 季节 AR，不估 MA？**
+月度农产品序列在长跨度上，MA 项的边际贡献很小，而条件最小二乘的估计稳定性更高、数值更可控。需要完整 SARIMAX 时，`fit_with_statsmodels()` 可直接对照。
+
+**为什么因子要先「去趋势」再标准化？**
+产量、库存都有长期增长趋势。直接对水平值做 z 分数，会把趋势当成信号，甚至让产量与价格呈现伪正相关。先除近两年均值再标准化，得到的是「相对常态的供需偏离」，经济含义明确。
+
+**为什么情景不用 GBM 算？**
+树模型只能分段常数插值，无法外推。实测把产量因子位移 ±1σ，树的响应只有 ±0.1%，既不可解释也不单调。改用 OLS 估计的供给/需求弹性换算，方向由符号约束保证，校验层还会再查一次单调性。
+
+---
+
+## 模型与评价
+
+| 模型 | 作用 | 实现 |
+|---|---|---|
+| 季节基准 | 必须被打败的下限 | 12 个月因果移动平均趋势 + 日历月季节指数 + 0.5 阻尼外推 |
+| SARIMAX | 捕捉周期与趋势 | AR(p) + 季节 AR@12 + 滞后一期外生，BIC 选阶 |
+| GBM | 捕捉供需非线性 | 内置直方图 GBRT（深度 3 / 220 树）或 LightGBM |
+| 集成 | 降低单模型方差 | 反比 MSE 权重（下限 5%），区间含模型内方差 + 模型间分歧 |
+
+回测为**滚动起点扩张窗口**，指标五件套：
+
+| 指标 | 含义 | 判读 |
+|---|---|---|
+| MAE / RMSE | 绝对误差 | 同量纲，跨品种不可直接比 |
+| MAPE | 相对误差 | 便于跨品种比较，小价格时失真 |
+| MASE | 相对季节朴素 | **< 1 才有价值** |
+| 方向命中率 | 涨跌判断 | 相对预测发起时的价格 |
+| 区间覆盖率 | 80% 区间实际覆盖 | 应接近 80%，过高=过宽，过低=过度自信 |
+
+残差诊断：均值偏差、标准差、DW、一阶自相关、Ljung-Box p 值、一倍标准差内占比。
+
+---
+
+## 数据来源与授权风险
+
+| 类型 | 来源 | 授权状态 |
+|---|---|---|
+| 行情（默认） | 新浪财经期货日线（`InnerFuturesNewService.getDailyKLine`，标准库 urllib 直连） | 接口无正式商用授权；**仅限个人研究与演示**，商用须取得数据源授权 |
+| 行情（备用） | AKShare `futures_zh_daily_sina` | 代码 **MIT**；上游行情同样来自交易所/资讯站点，需逐源核验 |
+| 基本面 | LLM 检索 + 人工复核 | 每条记录强制保存 `source_url` 与 `evidence_quote`，由使用者自行核验 |
+| 演示数据 | `src/data/ingest.py` 合成 | 本项目生成，**仅用于流程演示，不得用于真实交易** |
+
+> ⚠️ **框架许可 ≠ 数据授权。** 一个 MIT 协议的抓取库，不代表它抓下来的行情可以商用。仓库内不随附任何真实行情数据。
+
+合规要点：
+
+- 只复用 MIT / Apache-2.0 / BSD / PSF 宽松协议代码，**明确排除 GPL/LGPL/AGPL**；
+- 复用位置在代码注释中标注仓库、项目名、协议与修改说明；
+- 第三方清单见 [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md) 与机器可读的 `third_party_licenses.json`。
+
+---
+
+## 常见问题
+
+### HarvestCast 能直接用来实盘交易吗？
+不能。输出是概率区间，不是交易信号；没有仓位、风控、执行环节。回测也不含滑点与手续费。
+
+### 为什么某些品种一直告警 MASE ≥ 1？
+说明该品种当前模型没跑赢「去年同月」这种朴素基准。这在月度农产品上很常见（近似随机游走）。正确处理是降低该品种权重、补数据、换特征，而不是调参把指标刷绿。
+
+### 为什么打开界面全是「告警」？
+只有行情、没有基本面因子时会如实告警：当前是纯价格模型、不输出情景。到「LLM 抽取配置」补因子后重跑即恢复。
+
+### 首次运行没网 / 拉不到行情怎么办？
+`init` 会把新浪与 AKShare 两个通道的失败原因都打印出来再退出，**不会写任何假数据**。确认网络后重试，或 `python -m src.cli init --allow-demo` 用合成数据演示流程。
+
+### 没有 API Key 能用吗？
+能。手工模式把提示词复制到任意联网模型，把返回的 JSON 粘回来即可；校验链路与 API 模式完全一致。
+
+### HarvestCast 支持哪些品种？
+22 个，分四类：谷物（玉米、玉米淀粉、粳米、晚籼稻、早籼稻、强麦）、油脂油料（豆一、豆二、豆粕、豆油、棕榈油、菜粕、菜籽油、油菜籽、花生）、软商品（白糖、棉花、天然橡胶）、生鲜（苹果、红枣、生猪、鸡蛋）。完整清单见 `config/varieties.json`。
+
+### HarvestCast 需要哪些依赖和硬件？
+Python ≥ 3.9 即可，运行时零第三方依赖，不需要 GPU，也不需要数据库。statsmodels / LightGBM / AKShare 是可选加速包，缺失时自动回退内置实现。
+
+### HarvestCast 和直接问大模型要价格预测有什么区别？
+通用大模型给的是不可复现、无法回测的自然语言判断，且常带幻觉。HarvestCast 里 LLM 只做一件事：把公开资料结构化成带来源、带原文摘录的基本面因子；价格区间由可复现的数学模型给出，并经滚动回测与九项经济学逻辑校验。
+
+### HarvestCast 是免费的吗？可以商用吗？
+代码采用 MIT 协议，可免费商用。数据是另一回事：新浪/AKShare 行情的商用授权需另行取得，仓库不随附任何真实行情数据。
+
+### 能加新品种吗？
+在 `config/varieties.json` 加一条（id / 交易所 / 代码 / 分类 / 收获月 / 合约周期 / 价格带 / 关键因子），然后 `python -m src.cli init --variety <id>`。合约代码规则：`代码+0` 主力连续，`代码+YYMM` 远月。
+
+### 为什么不内置数据库？
+MB 级数据量，文件即接口：可 git diff、可人工核对、可复现。规模化时换 DuckDB/Parquet，只改 `store.py`。
+
+### HarvestCast 如何保证不用未来数据？
+三道闸：因子按发布日可见；滚动统计一律 expanding（只回看）；训练集按时间前缀切分、回测逐起点扩张。单测「篡改末期价格、断言历史特征不变」守住这条线。
+
+### LLM 抽取结果可以直接信吗？
+不可以。每条记录带置信度与原文摘录，低置信、无来源、含价格预测表述的记录不进训练集——它把人从「找资料」解放出来，不是从「判断」解放出来。
+
+## 参考与数据来源
+
+- 中国农产品供需形势分析（农业农村部市场信息司）：http://moa.gov.cn/
+- 大连商品交易所：http://www.dce.com.cn/ · 郑州商品交易所：http://www.czce.com.cn/ · 上海期货交易所：https://www.shfe.com.cn/
+- USDA 世界农产品供需展望报告（WASDE）：https://www.usda.gov/oce/commodity/wasde/
+- 优化方法参考：Aggarwal et al., *GEO: Generative Engine Optimization*, KDD 2024（arXiv:2311.09735）——本仓库文档采用其「引用来源 / 统计数据 / 定义前置」三项实证结论组织内容
+
+## 贡献指南
+
+1. Fork → 新建分支 `feat/xxx` 或 `fix/xxx`；
+2. 改动需附单测：`python -m src.cli selftest` 必须全绿；
+3. 新增依赖前先确认协议在白名单内，并同步更新 `THIRD_PARTY_NOTICES.md` 与 `third_party_licenses.json`；
+4. 改动涉及数据口径或模型定义时，同步更新 `docs/ARCHITECTURE.md`；
+5. 提交信息说明「改了什么 + 为什么」，不要只写「优化」。
+
+不接受的改动：引入强传染协议依赖、把 LLM 输出直接当价格、用未来数据构造特征、删除校验层告警。
+
+---
+
+## 开源协议
+
+本项目代码采用 [MIT License](./LICENSE)。第三方组件与数据源授权见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
+
+## 免责声明
+
+本项目为研究与工程示范用途，**不构成任何投资建议**。农产品价格受政策、天气、国际贸易与突发事件影响，任何模型都无法消除不确定性。使用本系统做出的任何决策及其后果，由使用者自行承担。
+
+---
+
+## 引用
+
+```bibtex
+@software{harvestcast2026,
+  title  = {HarvestCast: Lightweight Long-Horizon Agricultural Commodity Price Forecasting},
+  author = {HarvestCast contributors},
+  year   = {2026},
+  url    = {https://github.com/YUN2023c/HarvestCast},
+  note   = {Seasonal baseline + SARIMAX + GBM ensemble with economic sanity checks}
+}
+```
+
+方法与实现参考：Box-Jenkins 季节 ARIMA 范式、USDA ERS 的「期货价 + 历史基差」季节均价预测框架、Ljung-Box 残差诊断、滚动起点评估（rolling-origin evaluation），以及金融结构化抽取中「schema 约束 + 引用锚定 + 确定性校验」的分层实践。
+
+
+---
+
+<!-- 来源文件：docs/ARCHITECTURE.md -->
+
+# 架构说明
+
+> 四层结构固定：**LLM 抽取 → 数据汇聚 → 预测模型 → 经济学校验与输出**。
+> 不允许跨层直连（例如模型层不得直接调用 HTTP 取数，UI 不得参与任何计算）。
+
+## 1. 分层与职责
+
+```mermaid
+flowchart TB
+  subgraph L1[第一层 · LLM 结构化抽取]
+    A1[prompt_builder 渲染] --> A2{模式}
+    A2 -->|API| A3[client.chat/responses]
+    A2 -->|手工| A4[导出 prompt / 回填 JSON]
+    A3 --> A5[jsonschema_lite 结构校验]
+    A4 --> A5
+    A5 --> A6[extract.business_checks 业务校验]
+    A6 --> A7[归一化 → 因子长表]
+  end
+  subgraph L2[第二层 · 数据汇聚与清洗]
+    B1[行情 CSV] --> B3[clean.to_monthly]
+    A7 --> B4[clean.dedupe_factors]
+    B3 --> B5[features.build_dataset]
+    B4 --> B5
+    B5 --> B6[design_matrix / build_targets]
+  end
+  subgraph L3[第三层 · 预测]
+    C1[SeasonalBaseline] --> C4[ensemble.combine]
+    C2[SarimaxLite] --> C4
+    C3[GbmForecaster] --> C4
+    B6 --> C1 & C2 & C3
+    C5[backtest.rolling_backtest] --> C4
+  end
+  subgraph L4[第四层 · 校验与输出]
+    D1[elasticity.estimate] --> D2[scenarios]
+    C4 --> D2
+    C4 --> D3[validator 九项检查]
+    D2 --> D3
+    D3 --> D4[forecast JSON / UI]
+  end
+```
+
+| 层 | 模块 | 允许做的事 | 明确禁止 |
+|---|---|---|---|
+| L1 | `src/llm/*` | 渲染提示词、调用模型、校验与归一化 | 输出价格预测、跳过来源、放宽 schema |
+| L2 | `src/data/*` | 聚合、补缺、去噪、单位换算、构造特征 | 使用未来数据、按全样本统计量标准化 |
+| L3 | `src/models/*` | 拟合、预测、回测、集成 | 用测试期数据调参、用高频数据建模 |
+| L4 | `src/econ/*` | 弹性估计、情景、逻辑校验、告警 | 静默修正异常值、无告警放行 |
+
+## 1.1 数据引导（bootstrap）
+
+```
+无数据 ──> init ──> 新浪日线(urllib) ──成功──> 月度聚合 ──> CSV + _meta.json
+                       │
+                       └─失败─> AKShare(可选) ──成功──> 同上
+                                   │
+                                   └─失败─> 报错退出（不写任何文件）
+```
+
+- **拒绝静默造假**：`allow_demo=False` 时绝不生成合成数据；只有显式 `--allow-demo` 才走合成通道，且 `_meta.json` 标记 `source: demo`，界面可辨识。
+- **历史远月价**：按品种的收获月 × 合约周期，取近 4 年 + 未来 2 年的收获季合约（最多 4 个），逐月选「离目标期最近且尚未到期」的合约价；无可用合约时基差置 0 并在 meta 说明。
+- **污染隔离**：真实行情落地时，若发现 `data/fundamentals/<id>.csv` 是合成来源（`example.gov.cn/demo`），改名隔离而不是删除，避免「真价格 + 假基本面」混训。
+
+## 2. 数据契约
+
+| 实体 | 文件 | 关键字段 |
+|---|---|---|
+| 行情 | `data/market/{id}.csv` | `date, close, far_close, volume, open_interest, contract` |
+| 因子 | `data/fundamentals/{id}.csv` | `as_of, variety, factor_id, value, unit, period, direction, confidence, source_title, source_url, evidence` |
+| 派生 | `data/derived/*.json` | 特征快照、回测、模型摘要 |
+| 产物 | `data/output/forecast_{id}.json` | 见附录 A |
+| 审计 | `data/output/audit.log` | 每次写入追加一行 JSON |
+
+`close` 为月度主力收盘（现货代理），`far_close` 为收获季对应远月合约收盘。二者之差即基差，作为特征 `basis` 入模。
+
+## 3. 防未来函数：三道闸
+
+1. **可见性闸**：因子只有在 `max(period 所属月末, as_of 发布日) <= 当前月` 时才对当前月可见（`features._factor_monthly`）。
+2. **统计量闸**：所有滚动统计使用 **expanding** 窗口（截至 t），包括 z 分数、季节指数、波动率（`_expanding_z` / `_expanding_seasonal`）。
+3. **切分闸**：训练集按时间前缀切分；回测逐起点扩张；目标值只取 t 之后的月份。
+
+单元测试 `test_future_price_does_not_change_past_features` 通过「篡改最后一期价格，断言历史特征不变」来守住第 1、2 条。
+
+## 4. 模型细节
+
+### 4.1 季节基准
+
+$$\log P_t = \tau_t + s_{m(t)} + \varepsilon_t$$
+
+- $\tau_t$：12 个月**因果**移动平均（只回看）；
+- $s_m$：按日历月对 $(\log P_t-\tau_t)$ 取多年均值，并中心化；
+- 外推：$\tau_t + \delta \cdot h + s_{m}$，其中 $\delta$ 为最近一年斜率 × 0.5（阻尼）。
+
+### 4.2 SARIMAX（条件最小二乘）
+
+$$\Delta y_t = c + \sum_{i=1}^{p}\varphi_i \Delta y_{t-i} + \Phi \Delta y_{t-12} + \beta^\top x_{t-1} + e_t$$
+
+- 阶数 `p ∈ [0, p_max]`、季节项 `Φ ∈ {0,1}`，按 **BIC** 选择；
+- 外生变量一律滞后 1 期，保证 t 时点只用已发布信息；
+- 区间：$\sigma_h = \hat\sigma_{\Delta y}\sqrt{h}$（随机游走式累积），并夹在 [1.5%, 45%]。
+
+### 4.3 GBM（直接多步）
+
+对每个跨度 h 单独训练：目标 $y = \frac{1}{|W|}\sum_{m\in W}\log P_m$，$W$ 为 t+h 附近的收获窗口。
+
+- 后端 A（默认）：直方图分裂 GBRT，深度 3 / 220 树 / lr 0.05 / 行采样 0.85 / 列采样 0.85；
+- 后端 B（可选）：`LGBMRegressor`，参数语义一致；
+- 区间尺度：前 75% 训练、后 25% 留出验证的残差标准差（训练集残差必然偏小，直接用会系统性过窄）。
+
+### 4.4 集成
+
+$$w_i \propto \frac{1}{\text{MSE}_i},\quad w_i \ge 0.05,\ \sum w_i = 1$$
+
+- MSE 来自滚动回测，且计算每个起点的权重时**只用该起点之前的折**；
+- 区间方差：$\sigma^2 = \sum w_i^2\sigma_i^2 + \sum w_i(\mu_i-\mu)^2$（模型内 + 模型间分歧）。
+
+### 4.5 情景（结构弹性）
+
+$$\log P = c + \beta_s S + \beta_d D + \sum_{k=2}^{12}\gamma_k \mathbb{1}[m=k] + \varepsilon$$
+
+- $S$ 为供给松紧指数（产量、库存、面积、单产同向；不利天气反向），$D$ 为需求指数；
+- 季节用**月份虚拟变量**吸收，不能用价格自身推导的 `season_idx`（实测会把 $\beta_s$ 压到 0）；
+- 情景：$S\pm1\sigma$、$D\mp0.5\sigma$，价格 $= P_0\cdot e^{\Delta}$；
+- 符号约束 $\beta_s<0<\beta_d$ 由校验层强制检查。
+
+## 5. 校验矩阵
+
+| ID | 名称 | 触发条件 | 级别 |
+|---|---|---|---|
+| `price_band` | 价格带 | 超出品种合理带 ±30% | error |
+| `interval_width` | 区间宽度 | >75% 或 <2% | warn |
+| `probability` | 概率边界 | 上涨概率 <3% 或 >97% | warn |
+| `far_month` | 远月定价 | 与远月合约偏离 >18% | warn |
+| `season_shape` | 季节形状 | 收获月季节性高于非收获月 | warn |
+| `scenario_order` | 情景单调 | 不满足 丰产<平产<减产 | error |
+| `mase` | 基准对比 | 集成 MASE ≥ 1 | warn |
+| `coverage` / `confidence` / `dropped` | 数据质量 | 因子覆盖 <60%、均值置信 <0.6、有剔除 | warn/info |
+| `sample` | 样本长度 | <60 个月 | warn |
+
+`econ.block_on_error=true` 时，出现 error 会阻断结果输出（默认 false，便于研究场景查看异常）。
+
+## 6. 性能与容量
+
+实测（本机 Python 3.14，纯标准库后端，6 品种 × 10 年月度数据）：
+
+| 场景 | 耗时 |
+|---|---|
+| 单品种回测（8 起点 × 3 跨度）+ 全样本重训 | 6–12 s |
+| 全品种批量（6 品种） | 40–70 s |
+| Web 页面首屏（本地服务） | < 200 ms |
+
+数据量在 MB 级，文件即接口；若扩展到数十品种或日频，建议换 Parquet + DuckDB，`store.py` 为唯一改动点。
+
+## 7. 扩展点
+
+| 想做什么 | 改哪里 |
+|---|---|
+| 加品种 | `config/varieties.json` + `data/market|fundamentals/{id}.csv` |
+| 加因子 | 同文件 `factors` 段 + `schema.json` 的 `factor_id` 枚举 + 提示词调研清单 |
+| 换模型 | 实现 `Forecaster.fit/forecast_at`，注册到 `backtest.MODEL_FACTORY` |
+| 换数据源 | 实现 `ingest.fetch_*`，保持 `MarketRow` 契约 |
+| 换存储 | 只改 `data/store.py` |
+| 换前端 | 保持 `/api/*` JSON 契约即可 |
+
+## 8. 已知局限
+
+- 月度样本量小（10 年 = 120 点），参数估计方差大，长跨度区间天然偏宽；
+- 合成数据只用于流程验证，其统计特性与真实市场不同，勿据此判断模型在实盘的精度；
+- 期货主力连续不处理换月跳空（真实使用应做后复权或价差调整）；
+- 未建模政策突变、疫病、极端天气等结构断点，只能通过情景与告警提示；
+- 单一商品、单一时点，不具备跨品种套利或组合优化能力（不在本项目范围）。
+
+## 附录 A：`forecast_{id}.json` 结构
+
+```jsonc
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-11-21T17:47:00",
+  "variety": {"id":"corn","name":"玉米","ticker":"C","unit":"元/吨","harvest_months":[9,10,11]},
+  "as_of_month": "2026-11",
+  "far_close": 2560.0,
+  "headline": {
+    "horizon_months": 6, "target_months": ["2027-09","2027-10","2027-11"],
+    "price": 2361.32, "lo": 2133.32, "hi": 2613.7, "interval_level": 0.8,
+    "prob_up": 12.4, "expected_change_pct": -8.76,
+    "weights": {"gbm":0.44,"sarimax":0.34,"seasonal_baseline":0.22},
+    "models": [{"name":"gbm","price":2340.1,"lo":...,"hi":...,"sigma":0.06,"weight":0.44,"diagnostics":{}}],
+    "metrics": {"ensemble": {"mae":56,"rmse":62,"mase":0.451,"coverage":100.0}},
+    "best_model": "gbm", "ranking": ["gbm","ensemble","sarimax","seasonal_baseline"]
+  },
+  "horizons": {"6": {...}, "9": {...}, "12": {...}},
+  "scenarios": [{"key":"bumper","label":"丰产","price":2280.4,"change_pct":-3.4,"prob_up":30.1}],
+  "seasonal_profile": [{"month":1,"index":-0.02,"pct":-1.9}],
+  "validation": {"status":"pass","checks":[{"id":"price_band","level":"info","message":"..."}]},
+  "residual": {"n":8,"mean":-26.8,"sd":61.3,"dw":2.07,"ljung_box_p":0.43,"series":[...]},
+  "sensitivity": [{"input_shift_pct":-10,"price":2125.2}],
+  "elasticity": {"beta_supply":-0.0224,"t_supply":-3.53,"beta_demand":0.0066,"sign_ok":true},
+  "history": [{"month":"2018-01","close":2300.0,"far_close":2280.0}],
+  "logs": [{"level":"warn","msg":"..."}]
+}
+```
+
+
+---
+
+<!-- 来源文件：docs/DATA_SOURCES.md -->
+
+# 数据源、授权与风险
+
+> 一句话：**代码协议与数据授权是两件事。** 一个 MIT 库抓来的数据，不等于可以商用。
+
+## 1. 三类数据
+
+| 类别 | 用途 | 获取方式 | 授权状态 | 风险 |
+|---|---|---|---|---|
+| 期货行情（默认） | 价格、基差、波动 | 新浪财经期货日线，标准库直连 | 接口无正式商用授权，仅限研究与演示 | 中高：商用须另行授权 |
+| 期货行情（备用） | 同上 | AKShare（可选） | 代码 MIT；上游站点条款各自独立 | 中：需逐源核验 |
+| 基本面因子 | 产量/库存/进口/需求/政策/天气 | LLM 检索 + 人工复核 | 原始报告/公告版权归原方 | 高：口径差异、修订、时效 |
+| 演示数据 | 跑通流程、单测 | `src/data/ingest.generate_demo()` | 本项目生成 | 低：但**禁止**用于真实决策 |
+
+## 1.1 初始数据获取（`init`）
+
+首次运行、或某品种缺数据时，**必须先取数再预测**：
+
+```bash
+python -m src.cli init                      # 全部品种
+python -m src.cli init --variety corn       # 单品种
+python -m src.cli init --force              # 强制重拉
+```
+
+行为约定：
+
+| 情况 | 系统行为 |
+|---|---|
+| 本地已有 ≥ `--min-months`（默认 60）个月 | 跳过，不重复拉取 |
+| 新浪通道可用 | 写入 CSV + `data/market/_meta.json`（来源、合约、首末月、抓取时间） |
+| 新浪失败、AKShare 已安装 | 自动回退 AKShare，并在 meta 里记录失败原因 |
+| 两条通道都失败 | **报错退出，不写任何行情文件**，提示检查网络或显式 `--allow-demo` |
+| 已有 `--allow-demo` | 生成合成数据，meta 标记 `source: demo` |
+| 真实行情落地且存在合成因子 | 合成因子被**改名隔离**为 `*.demo-<时间戳>.bak`，不删除 |
+
+## 2. 行情接入口径
+
+- 接口：`ak.futures_zh_daily_sina(symbol="C0")` 等，符号映射见 `src/data/ingest.py::AKSHARE_SYMBOL`；
+- 聚合：日线 → 月末值（`monthly_agg: last`），成交/持仓求和；
+- 主力连续**未做换月复权**。真实研究应做后复权或价差调整，否则换月跳空会被误判为行情异动（去噪层可能把跳空当异常值处理，日志会记录 `outlier-fixed`）；
+- 远月价：演示数据由持有成本 + 季节预期生成；真实场景应取对应收获月合约收盘。
+
+## 3. 基本面因子的来源要求
+
+每条因子记录必须带：
+
+| 字段 | 要求 | 不满足的后果 |
+|---|---|---|
+| `value` | 数值或 `null` | `null` 直接不入库 |
+| `unit` | 与数值一致，可被 `clean.normalize_unit` 识别 | 未知单位按原值使用并告警 |
+| `period` | `YYYY-MM` / `YYYY-Qn` / `YYYY` | 无法解析则丢弃 |
+| `as_of_date` | 实际**发布日期**，不得晚于信息截止日 | 越界直接拒收 |
+| `direction` | `bullish` / `bearish` / `neutral` | 枚举外拒收 |
+| `confidence` | 0–1，低于阈值（默认 0.55）不入训练集 | 记录被剔除并计入质量报告 |
+| `source_url` | 有效链接；`N/A` 视为无来源 | 无来源不入训练集 |
+| `evidence_quote` | 原文摘录，不得改写 | 含"目标价/预计涨到"等表述直接拒收 |
+
+## 4. 三个已知的数据质量陷阱
+
+1. **口径不一致**：农业农村部"万吨"、USDA"百万蒲式耳"、行业协会"万吨/年"。系统只做单位换算，不做口径推断——冲突时保留最新一条并在 `notes` 说明。
+2. **修订与回溯**：月度供需报告会修订上月数字。系统按 `(factor_id, period)` 去重保留 `as_of` 最新者，因此**不能用未来的修订值回填历史**（回测会失真）。若要严格复现，应按发布日快照存档。
+3. **发布滞后**：统计口径的"当月数据"通常在次月才发布。可见性规则取 `max(period 月末, as_of 发布日)`，天然滞后 1 期以上。
+
+## 5. 商用前的检查清单
+
+- [ ] 行情源：拿到书面授权或使用交易所公开许可数据；
+- [ ] 报告源：只引用公开摘要 + 链接，不批量复制原文；
+- [ ] LLM 服务：确认供应商的数据使用条款（是否用于训练）；
+- [ ] 第三方代码：核对 `THIRD_PARTY_NOTICES.md`，确认无 GPL/LGPL/AGPL；
+- [ ] 对外发布：保留免责声明，不承诺收益、不使用"保证/稳赚"类表述；
+- [ ] 个人信息：本项目不采集任何个人信息。
+
+## 6. 免责声明
+
+本项目为研究与工程示范，不构成投资建议。数据可能滞后、修订或存在误差；任何使用本系统做出的决策及其后果由使用者自行承担。
+
+
+---
+
+<!-- 来源文件：docs/RESEARCH.md -->
+
+# 调研报告：10 个方向 + 开源项目与协议核验
+
+> 本文件是设计前置产物。所有架构选择都可追溯到下面的某条结论；反过来，凡是本文件没有支撑的设计，都不应进入代码。
+> 调研时间：2026-11。核验方式：官方文档 / 论文 / 仓库 LICENSE 元数据。
+
+## 0. 结论先行
+
+| # | 方向 | 对本项目的直接决定 |
+|---|---|---|
+| 1 | 农产品中长期预测建模思路 | 以**供需基本面 + 季节性 + 均值回归**为主干，期货价作为前瞻锚，不做高频 |
+| 2 | 远月 vs 现货季节性 | 目标必须是**收获窗口**；远月价入模作基差特征，并作为校验锚 |
+| 3 | LLM 结构化抽取工程 | 三层校验（结构/约束/业务）+ 逐字段引用 + 置信度门控 |
+| 4 | SARIMAX/Prophet 落地 | 月度 s=12、BIC 选阶、残差白噪声检验、区间随跨度扩张 |
+| 5 | LightGBM 长周期 | **直接多步**、季节性滞后、留出验证定区间、承认无法外推 |
+| 6 | Schema 标准化 | JSON Schema 2020-12 + strict 三约束 + 枚举收敛 |
+| 7 | 可商用轻量架构 | 四层、文件即接口、零重依赖、协议白名单 |
+| 8 | 无数据库数据管线 | CSV + 原子写 + `.bak` + 审计日志 + 可 git diff |
+| 9 | API/手动双模式 | 同一模板 + 同一 Schema + 同一校验器 + 模板指纹 |
+| 10 | 供需因子与时序融合 | 时序做基准、因子做修正、弹性做情景，三者职责分离 |
+
+---
+
+## 1. 农产品中长期价格预测的通用建模思路
+
+**业界常见四类方法**（FAO / USDA / 世界银行口径）：基本面分析、技术分析、计量建模、情景与敏感性分析，外加"期货市场作为前瞻信号"。
+
+关键共识：
+- 中长期（6–12 个月）预测的可信来源是**供给（面积/单产/产量/库存/进口）+ 需求（饲用/加工/出口）+ 政策**，而不是价格形态；
+- 学术与工业界都强调农产品价格的三要素：**强季节性、供需滞后、均值回归**。Fraunhofer ITWM 的两因子模型明确把"seasonality / long-term trend / short-term fluctuation with mean reversion"作为建模目标，再用外部因子（降水、气温、消费、产量）驱动情景；
+- 单一模型容易过拟合，组合模型（统计 + ML + 分解重构）在文献中普遍优于单模型，但**必须先有朴素基准**。
+
+→ 落到本项目：
+- 目标定为"收获窗口均价"，不是某日收盘；
+- 主干 = 季节基准 + SARIMAX + GBM，三者互补；
+- 因子表只收基本面事实，不收舆情情绪（情绪难以稳定量化，且易被 LLM 编造）。
+
+参考：
+- Fraunhofer ITWM, *Price modelling of agricultural commodities under consideration of external factors* — https://www.itwm.fraunhofer.de/en/departments/fm/latest-news/current-research-topics/price-modelling-of-agricultural-commodities.html
+- Global Trade Connect, *Global Commodity Price Forecasting Methods*（方法分类与局限）— https://global-trade-connect.com/global-commodity-price-forecasting-methods
+- MDPI Electronics 13(22):4362, *AI Tools for the Agriculture Value Chain*（数据需求与混合模型）— https://mdpi.com/2079-9292/13/22/4362
+
+---
+
+## 2. 期货远月价 vs 现货季节性
+
+核心概念是**基差**：`基差 = 现货价 − 期货价`，由持仓成本（仓储、保险、运输、资金）与**季节预期**共同决定。
+
+- 收获季现货充裕 → 现货承压，期货相对现货升水（负基差），这是农产品特有的**季节性 backwardation**；不能读成"市场看空"；
+- 青黄不接期现货紧张 → 现货升水（正基差）；
+- 套保者的真实售价 ≈ 期货价 + 预期基差，因此**只用期货价做预测会系统性偏离**；
+- USDA ERS 的季节均价预测方法就是"期货价 + 历史基差 + 销售进度"的组合。
+
+→ 落到本项目：
+- 预测标的 = 收获窗口均价（对应真实销售时点）；
+- `basis = log(far_close) − log(close)` 作为特征；
+- 校验层增加"预测价 vs 远月价偏离 ≤18%"，偏离过大必须提示（可能是模型错，也可能是跨期机会）。
+
+参考：
+- *Agricultural futures basis*（持仓成本与季节基差）— https://financial-wiki.vercel.app/agricultural-futures-basis
+- *Agricultural Price Forecasting and Basis Risk*（`expected local cash = futures + expected basis`）— https://theagriculturedata.com/agricultural-price-forecasting-basis-risk
+- UW Extension, *Understanding Basis in Grain Marketing* — https://farms.extension.wisc.edu/articles/understanding-basis-in-grain-marketing
+- NISM, *Seasonality effect*（播种季升水/收获季贴水的形成机制）— https://nismprofessor.com/glossary/seasonality-effect
+
+---
+
+## 3. LLM 结构化金融数据抽取的工程方案
+
+行业成熟做法已从"给模型一个 PDF 让它吐 JSON"演进为**分阶段管线 + 引用锚定 + 确定性校验**：
+
+| 阶段 | 作用 | 关键控制 |
+|---|---|---|
+| 分类 | 判断文档类型，选择 schema | 误分类会级联污染后续所有字段 |
+| 证据映射 | 为每个待抽字段定位原文位置 | 抽取只能看被映射的证据，幻觉被结构性限制 |
+| 抽取 | 按 schema 输出，逐字段给置信度 | 结构化输出 + 字段级 provenance |
+| 校验 | 跨字段一致性、数值可复算 | 失败只标记字段，不整篇拒绝 |
+| 打分 | 文档级/字段级置信度聚合 | 低于阈值转人工 |
+
+另一条共识：**schema 不能保证数值真实**。约束只能消灭格式漂移；数值对不对，必须靠确定性校验（重算、比对主数据、范围检查）。
+
+→ 落到本项目：
+- `prompts/schema.json` 强约束字段与枚举；`evidence_quote` 强制原文摘录；
+- 三层校验：结构 → 约束 → 业务（日期越界 / 价格预测表述 / 品种匹配 / 重复项）；
+- 置信度 <0.55 或无有效 URL 的记录**不进训练集**，但在 UI 里展示剔除原因。
+
+参考：
+- MDPI *Future Internet* 18(6):284, *An Auditable LLM-RAG Architecture for Financial Document Intelligence*（citation anchoring + JSON-schema validation + groundedness）— https://www.mdpi.com/1999-5903/18/6/284/htm
+- Cognilium, *The 8-Stage Document Intelligence Pipeline* — https://cognilium.ai/blogs/8-stage-docint-pipeline
+- Nixi Consulting, *Trustworthy AI in Finance Data Pipelines*（"结构 ≠ 真实"）— https://www.nixiconsulting.com/blog/trustworthy-ai-finance-data-pipelines
+
+---
+
+## 4. SARIMAX / Prophet 在农产品上的落地范式
+
+- 月度数据取 `s=12`；先看原始序列与滚动均值/方差，再决定 `d/D`，**避免过度差分**（会放大区间）；
+- 阶数选择：ACF/PACF 给初值 + AIC/BIC 比较 + 留出期误差；
+- 残差必须做 Ljung-Box，p 小说明还有结构未提取；
+- 区间随跨度自然变宽，若 95% 区间只覆盖 70% 实际值，说明过度自信；
+- 外生变量必须"预测期可得"，否则等于作弊；
+- Prophet 的优势是可解释的趋势/多重季节/变点，劣势是加法结构与对复杂交互的建模能力；它适合做**基准与解释**，不适合做唯一模型。
+
+→ 落到本项目：
+- SARIMAX 只保留 AR + 季节 AR + 滞后外生（条件最小二乘），BIC 选阶；
+- 输出 `order / BIC / σ / R² / Ljung-Box p / DW` 供人核查；
+- 保留 `fit_with_statsmodels()` 作为可选对照路径（BSD-3，可商用）；
+- 不用 Prophet：其季节项已被季节基准覆盖，引入会增加依赖而不增加信息。
+
+参考：
+- statsmodels 官方 ARIMA/SARIMAX 文档与示例 — https://topolearnapp.com/learn/statsmodels/arima
+- *SARIMA in Practice*（差分纪律、区间校准、rolling-origin）— https://thelinuxcode.com/sarima-in-practice-seasonal-forecasting-you-can-defend-and-operate-in-2026
+- *Time Series Analysis and Forecasting: A Practical Python Guide* — https://rottenwifi.com/time-series-analysis-and-forecasting-a-practical-python-guide-2026-update
+
+---
+
+## 5. 轻量机器学习因子预测框架（LightGBM 长周期）
+
+- LightGBM 本身不是时序模型，靠**特征工程**把序列转成监督学习：滞后、滚动统计、日历特征、外生变量；
+- **滞后阶必须 ≥ 预测跨度**，否则会把目标信息漏进特征；
+- 多步策略：递归（误差累积、长跨度易发散）vs 直接（每个跨度单独建模、无累积误差）。长跨度推荐直接法；
+- 树模型无法外推：预测值必然落在训练标签范围内。极端情景必须换方法；
+- 小样本下深度要浅（3–4 层）、叶子样本要够（≥8），并做时间序留出验证；
+- 早期停止很关键：多训 200 轮，留出集误差可能反而恶化 20%+。
+
+→ 落到本项目：
+- 直接多步，每跨度独立模型；
+- 深度 3 / 220 树 / lr 0.05 / 行、列采样 0.85 / 种子固定；
+- 区间用"前 75% 训练、后 25% 留出"的残差标准差，而非训练残差；
+- 情景改用结构弹性（见 §10），因为树外推不可靠。
+
+参考：
+- LightGBM 官方文档 — https://lightgbm.readthedocs.io/
+- ACM, *LightGBM-Based Time Series Forecasting for CSI 300*（特征构造与递归预测细节）— https://acm-prod.literatumonline.com/doi/10.1145/3785706.3785755
+- *Gradient Boosting for Time Series: Using LightGBM to Forecast*（早期停止的实证）— https://pythonanddatascience.com/blog/gradient-boosting-for-time-series-using-lightgbm-to-forecast
+- *Lag Features*（horizon-lag 规则与 CCF 选滞后）— https://medium.com/data-science-collective/lag-features-teaching-your-model-to-remember-the-past-005a0493ed32
+
+---
+
+## 6. 金融 JSON 结构化抽取的 Schema 标准化
+
+- 事实标准是 **JSON Schema Draft 2020-12**：OpenAI 结构化输出、Anthropic tool use、MCP 都接受它；
+- strict 模式三条硬约束（违反即 400）：
+  1. 每个 object 必须显式 `additionalProperties: false`；
+  2. 所有属性必须列入 `required`；"可选"要用 `type: ["T","null"]` 表达，而不是从 required 删掉；
+  3. 根必须是 object，顶层不能是 `anyOf`；
+- `enum` 是最有效的收敛手段；`description` 是给模型的第二份提示词；
+- 需要处理 refusal 与截断（`finish_reason=length`），不能当成普通解析失败。
+
+→ 落到本项目：
+- `schema.json` 逐层 `additionalProperties:false`，全字段 required，可空字段用 `[T,null]`；
+- `factor_id`、`direction`、`impact`、`magnitude`、`mode` 全部枚举；
+- 客户端显式检测截断并提示；refusal 作为一等结果处理。
+
+参考：
+- *JSON Schema for LLM structured output*（2020-12 与五种关键关键字）— https://712tools.com/blog/json-schema-for-llm-structured-output
+- *Strict JSON Schema for OpenAI Structured Outputs*（三条规则的机械修正）— https://www.aijsons.com/blog/json-schema-openai-structured-outputs
+- *Testing Structured Outputs from an LLM*（分层错误类型与截断检测）— https://codoid.com/?p=41979
+
+---
+
+## 7. 可商用轻量量化系统架构规范
+
+- 分层清晰：`data → features → model → backtest → report`，层间通过**文件/标准结构**交互；
+- 无状态函数优先，避免深层继承；
+- 可复现：固定随机种子、记录参数、记录数据版本；
+- 全部计算可重跑，且重跑结果一致；
+- 协议先行：只用 MIT / Apache-2.0 / BSD，避免 GPL 传染。
+
+→ 落到本项目：四层固定、`store.py` 为唯一 I/O 边界、模型实现可替换、种子固定、`audit.log` 记录每次产物。
+
+参考：
+- Quant Research Lab（"文件即接口"、管道化）— https://github.com/YangJinYanXian/Quant-Research-Lab
+- *Building a Clean, Scalable Quant Research Pipeline*（schema 校验、Parquet、避免前视）— https://www.metteyyaanalytics.com/blog/scalable-quant-research-pipeline-in-python
+- *FactorForge*（"每个阶段读写文件"作为可复现保证）— https://www.pankajsomkuwarai.com/copy-of-voiceai
+
+---
+
+## 8. 无数据库、文件式轻量数据管线
+
+- 小数据量（MB 级）用 CSV/Parquet 足够，且能 git diff、人工核对；
+- 时间对齐是最大坑：统一时间口径（本项目统一为 `YYYY-MM` 月序号整数），缺失用显式标记而非静默填充；
+- 写入要原子（临时文件 + rename），覆盖前备份；
+- 增量更新要能回答"这条数据哪来的、什么时候来的"。
+
+→ 落到本项目：`store.write_csv/json` 原子写 + `.bak`；`audit.log` 追加式记录；月度缺口超过 2 个月不填充而是告警；因子长表保留 `source_url` / `evidence`。
+
+参考：
+- aquant 架构解析（Parquet 落地、时间对齐、复权口径）— https://www.csdn.net/detail/webblog_27422290/21917
+- Quantex（CSV/Parquet 数据源抽象、事件驱动）— https://mrgreeny.dev/projects/quant-finance-backtesting-library
+
+---
+
+## 9. 大模型 API / 手动双模式兼容架构
+
+双模式的本质不是"两套代码"，而是**一份契约、两个传输通道**：
+
+| 必须统一 | 允许不同 |
+|---|---|
+| 提示词模板（含占位符与自检清单） | 调用方式（HTTP / 人工复制） |
+| JSON Schema 与版本号 | 模型与温度 |
+| 校验器与质量门槛 | 重试策略 |
+| 入库结构与去重规则 | 元数据里的 `mode` 字段 |
+
+工程上加一道**模板指纹**（SHA256）：导入时重算并比对，模板改过就拒绝复用旧结果——这是防止"提示词升级了但结果还是旧的"最省事的办法。
+
+→ 落到本项目：`prompt_builder.render()` 产出 system/user/hash；`extract.import_payload()` 与 `client.call_chat()` 汇入同一个 `ingest()`。
+
+---
+
+## 10. 经济供需因子 + 时序模型融合
+
+文献里主流是**两段式残差修正**：
+
+1. 时序/计量模型提取线性结构与季节（ARDL、ETS、Prophet）；
+2. GBM 或专家网络对残差做非线性修正（ARDL-LightGBM、Prophet-SRC、Ridge+LSTM-Forest）。
+
+另一条线是**结构弹性**：把 `log P` 回归到供给/需求指数 + 月份虚拟变量，得到可解释的 β，用于情景换算。
+
+→ 落到本项目：
+- 点预测用三模型集成（时序 + 树 + 基准）；
+- 情景不用树（无法外推），改用弹性：`Δlog P = β_s·ΔS + β_d·ΔD`；
+- 校验层强制 `β_s<0<β_d`，方向不对直接报 error；
+- 需求类与进口类因子不进"供给松紧指数"——它们与价格同期内生，放进去会把内生性灌进弹性估计（本项目实测 β_s 会翻正）。
+
+参考：
+- *AI-Driven Supply Chain Demand Forecasting Using Hybrid Time-Series and Gradient Boosting*（时序 + 残差修正）— https://ijsred.com/volume9/issue2/paper-details/IJSRED-V9I2P147.html
+- *Hybrid ARDL-LightGBM*（两段式残差学习，方向准确率为首要指标）— https://tdr.lib.ntu.edu.tw/jspui/handle/123456789/102701?mode=full
+- *GPF-EVMoLE*（ETS 基准 + 变量选择 + 残差专家，明确"结构基线 vs 残差修正"分工）— https://dx.doi.org/10.3390/su18094404
+
+---
+
+## 11. 开源项目参考与协议核验
+
+| 项目 | 协议 | 做了什么 | 本项目借鉴 / 未照搬 |
+|---|---|---|---|
+| [christoverhendri/Commodity-Data-Analysis](https://github.com/christoverhendri/Commodity-Data-Analysis) | 未声明（仅参考思路） | ARIMA/SARIMAX + XGBoost/RF/LightGBM 算术平均集成 | 借鉴"多模型 + 集成"骨架；**未照搬**其算术平均（改用反比 MSE，并按时间前推取权重） |
+| [DhrumiS04/AgriPredict](https://github.com/DhrumiS04/AgriPredict) | Apache-2.0 | LSTM + SARIMA + ETS + NLP 情绪 | 借鉴"统计 + 学习模型互补"；**未照搬** LSTM（样本量不足）与情绪因子（不可稳定量化） |
+| [PavithaDissanayake/VegetablePriceForecast](https://patch-diff.githubusercontent.com/PavithaDissanayake/VegetablePriceForecast) | 未声明（仅参考） | 采集→清洗→ARIMA/LSTM→Streamlit | 借鉴"采集-清洗-预测-展示"分层；**未照搬** Streamlit（要求单文件 HTML + 指定设计系统） |
+| [YangJinYanXian/Quant-Research-Lab](https://github.com/YangJinYanXian/Quant-Research-Lab) | 见仓库 | "文件即接口"的轻量研究框架 | 直接采用该原则 |
+| [akfamily/akshare](https://github.com/akfamily/akshare) | **MIT** | 财经数据接口库 | 作为可选行情适配器；**不改源码**，仅调用 `futures_zh_daily_sina` 并聚合 |
+| [statsmodels](https://www.statsmodels.org/) | **BSD-3-Clause** | 计量/时序模型 | 可选对照实现（`fit_with_statsmodels`） |
+| [microsoft/LightGBM](https://github.com/microsoft/LightGBM) | **MIT** | 梯度提升 | 可选后端 |
+| [microsoft/qlib](https://github.com/microsoft/qlib) | **MIT** | AI 量化研究平台 | 仅参考工程分层，未引入（依赖过重） |
+| [AI4Finance-Foundation/FinGPT](https://github.com/AI4Finance-Foundation/FinGPT) | **MIT** | 金融大模型与数据 | 未引入（本项目不需要微调模型） |
+| [AI4Finance-Foundation/FinRobot](https://github.com/AI4Finance-Foundation/FinRobot) | **Apache-2.0** | 金融 Agent 平台 | 未引入（Agent 编排超出范围） |
+| [TauricResearch/TradingAgents](https://github.com/TauricResearch/TradingAgents) | **Apache-2.0** | 多智能体交易研究 | 未引入（与"LLM 不预测价格"的设计冲突） |
+
+**规避清单**：Backtrader（GPL-3.0）、PyQt/PySide（GPL/LGPL）等强传染协议一律不引入；本项目 UI 用原生 HTML，回测自研。
+
+**协议核验的边界**（必须写在文档里，避免误读）：
+- 仓库 LICENSE 说的是**代码**的授权；
+- AKShare 抓取的行情来自交易所与资讯站点，**数据本身的商用授权需逐源核验**；
+- 本项目不随附任何真实行情，`data/` 由脚本生成合成数据。
+
+---
+
+## 12. 从调研到实现的映射表
+
+| 调研结论 | 代码位置 | 验证 |
+|---|---|---|
+| 收获窗口而非单点 | `core/timeutil.harvest_window` | `test_harvest_window_*` |
+| 基差特征 | `data/features.build_dataset`（`basis`） | `TestFeatures` |
+| 防未来函数 | `features._factor_monthly` / `_expanding_z` | `test_future_price_does_not_change_past_features` |
+| 去趋势后再标准化 | `features._detrend_ratio` | 弹性符号测试 |
+| 直接多步 | `models/gbm.py` + `features.build_targets` | `test_gbm_learns_supply_relation` |
+| 留出验证定区间 | `gbm.py` 中 75/25 切分 | 回测覆盖率指标 |
+| 反比 MSE + 时间前推权重 | `models/ensemble.py` + `backtest.py` | `test_rolling_backtest_metrics` |
+| 弹性做情景 | `econ/elasticity.py` | `test_elasticity_sign` |
+| 九项校验 | `econ/validator.py` | `TestEconValidation` |
+| strict schema | `prompts/schema.json` + `jsonschema_lite` | `TestLLMSchema` |
+| 双模式同契约 | `llm/prompt_builder.py` + `extract.ingest` | `test_prompt_render_has_no_placeholder_left` |

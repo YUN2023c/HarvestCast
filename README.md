@@ -163,6 +163,8 @@ harvestcast/
 ├── config/
 │   ├── varieties.json          # 品种主数据（收获月、合约周期、价格带、关键因子）
 │   └── settings.example.json   # 参数模板（复制为 settings.json 后修改）
+├── llms.txt                    # AI 引擎精选索引（GEO）
+├── llms-full.txt               # 主文档全文合集（脚本生成）
 ├── prompts/
 │   ├── extraction_prompt.md    # 唯一提示词模板（占位符渲染）
 │   └── schema.json             # 抽取结果 JSON Schema（2020-12，strict 兼容）
