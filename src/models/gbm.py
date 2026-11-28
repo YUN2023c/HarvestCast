@@ -1,3 +1,5 @@
+# Copyright (c) 2026 李硕
+# SPDX-License-Identifier: MIT
 """梯度提升树（GBM）预测器。
 
 两种后端：

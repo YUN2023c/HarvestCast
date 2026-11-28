@@ -1,3 +1,5 @@
+# Copyright (c) 2026 李硕
+# SPDX-License-Identifier: MIT
 """LLM API 调用层（仅标准库 urllib，无 SDK 依赖）。
 
 支持两种主流接口形态，通过 settings.llm.api_style 选择：

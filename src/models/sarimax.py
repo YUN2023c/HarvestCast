@@ -1,3 +1,5 @@
+# Copyright (c) 2026 李硕
+# SPDX-License-Identifier: MIT
 """SARIMAX 轻量实现（条件最小二乘，无 statsmodels 依赖）。
 
 模型形式（对月度对数价 y）：

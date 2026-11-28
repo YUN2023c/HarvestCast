@@ -1,3 +1,5 @@
+# Copyright (c) 2026 李硕
+# SPDX-License-Identifier: MIT
 """本地 Web 服务（仅标准库 http.server）。
 
 职责边界：只做「读文件 + 返回 JSON + 触发一次后台任务」，不做任何数值计算。

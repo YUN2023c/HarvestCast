@@ -1,3 +1,5 @@
+# Copyright (c) 2026 李硕
+# SPDX-License-Identifier: MIT
 """配置加载：路径、settings、品种主数据。
 
 设计取舍：只用 JSON，不引入 YAML/pydantic，保证零依赖启动。

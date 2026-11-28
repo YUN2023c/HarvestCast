@@ -1,3 +1,5 @@
+# Copyright (c) 2026 李硕
+# SPDX-License-Identifier: MIT
 """预测编排：清洗 → 特征 → 三模型 → 集成 → 情景 → 经济学校验 → 落盘。
 
 一次 ``run_forecast`` 产出前端需要的全部数据，UI 不做任何计算，只做展示，

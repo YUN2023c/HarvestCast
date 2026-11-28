@@ -1,3 +1,5 @@
+# Copyright (c) 2026 李硕
+# SPDX-License-Identifier: MIT
 """特征工程：全部按「当时可获得」原则构建。
 
 防未来函数的三个硬措施：

@@ -1,3 +1,5 @@
+# Copyright (c) 2026 李硕
+# SPDX-License-Identifier: MIT
 """集成融合。
 
 权重不用固定值，也不用「在测试集上挑最优」，而是：

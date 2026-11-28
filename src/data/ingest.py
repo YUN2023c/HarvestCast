@@ -1,3 +1,5 @@
+# Copyright (c) 2026 李硕
+# SPDX-License-Identifier: MIT
 """数据接入层：初始行情获取 + 离线合成样本。
 
 三条通道，优先级从高到低：

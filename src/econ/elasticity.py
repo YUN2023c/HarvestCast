@@ -1,3 +1,5 @@
+# Copyright (c) 2026 李硕
+# SPDX-License-Identifier: MIT
 """供需弹性估计与情景模拟。
 
 为什么情景不直接用 GBM：

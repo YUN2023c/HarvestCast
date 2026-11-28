@@ -1,3 +1,5 @@
+@REM Copyright (c) 2026 李硕
+@REM SPDX-License-Identifier: MIT
 @echo off
 setlocal EnableExtensions
 cd /d "%~dp0"

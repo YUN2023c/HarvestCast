@@ -1,3 +1,5 @@
+# Copyright (c) 2026 李硕
+# SPDX-License-Identifier: MIT
 """提示词渲染器（API 模式与手工模式共用同一份产物）。
 
 同一份渲染结果 + 同一个 schema 版本 + 同一个校验器，才能保证「双模式 100% 等价」。

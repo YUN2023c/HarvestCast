@@ -1,3 +1,5 @@
+# Copyright (c) 2026 李硕
+# SPDX-License-Identifier: MIT
 """数据契约（dataclass + 校验）。
 
 只做结构校验与单位归一，不做业务判断；业务判断放在 econ 层，

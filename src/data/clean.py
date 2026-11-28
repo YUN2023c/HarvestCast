@@ -1,3 +1,5 @@
+# Copyright (c) 2026 李硕
+# SPDX-License-Identifier: MIT
 """清洗层：统一频率、去重、补缺、去噪、单位归一。
 
 原则：

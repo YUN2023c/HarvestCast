@@ -1,3 +1,5 @@
+# Copyright (c) 2026 李硕
+# SPDX-License-Identifier: MIT
 """LLM 产出落地：业务校验 → 归一化 → 合并入库。
 
 LLM 只产出「事实」，这里把它转成模型可吃的长表，并把不可信的部分挡在门外：

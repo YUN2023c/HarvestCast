@@ -1,3 +1,5 @@
+# Copyright (c) 2026 李硕
+# SPDX-License-Identifier: MIT
 """月份口径工具。
 
 全部内部计算统一使用「月序号」整数（year*12 + month-1），

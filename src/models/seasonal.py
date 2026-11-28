@@ -1,3 +1,5 @@
+# Copyright (c) 2026 李硕
+# SPDX-License-Identifier: MIT
 """季节基准模型（Seasonal Baseline）。
 
 用途：作为「必须被打败的下限」。任何复杂模型若无法稳定优于该基准，

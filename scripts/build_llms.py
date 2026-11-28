@@ -1,3 +1,5 @@
+# Copyright (c) 2026 李硕
+# SPDX-License-Identifier: MIT
 """生成 llms-full.txt：把主文档按 LLM 友好格式拼接为单文件。
 
 llms.txt 是精选索引（人手维护）；llms-full.txt 是全文合集（脚本生成），

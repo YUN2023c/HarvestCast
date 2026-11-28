@@ -1,3 +1,5 @@
+# Copyright (c) 2026 李硕
+# SPDX-License-Identifier: MIT
 """初始数据获取链路的单元测试。
 
 重点验证「没有初始数据时先获取，且绝不用合成数据顶替真实行情」：

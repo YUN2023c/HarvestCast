@@ -1,3 +1,5 @@
+# Copyright (c) 2026 李硕
+# SPDX-License-Identifier: MIT
 """极简 JSON Schema 校验器（覆盖本项目 schema 用到的关键字）。
 
 为什么不用 jsonschema 库：目标是零依赖可跑。本项目 schema 只用到

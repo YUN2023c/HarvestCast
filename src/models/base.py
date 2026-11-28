@@ -1,3 +1,5 @@
+# Copyright (c) 2026 李硕
+# SPDX-License-Identifier: MIT
 """模型公共契约。
 
 统一接口的价值：回测、集成、前端展示都只认 ``Forecast``，

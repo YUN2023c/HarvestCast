@@ -1,3 +1,5 @@
+# Copyright (c) 2026 李硕
+# SPDX-License-Identifier: MIT
 """滚动起点回测（rolling-origin / walk-forward）。
 
 为什么不用随机 K 折：

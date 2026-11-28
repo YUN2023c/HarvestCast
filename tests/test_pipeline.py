@@ -1,3 +1,5 @@
+# Copyright (c) 2026 李硕
+# SPDX-License-Identifier: MIT
 """核心链路单元测试（纯标准库 unittest，零依赖可跑）。
 
     python -m src.cli selftest
